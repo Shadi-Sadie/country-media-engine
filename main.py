@@ -1,6 +1,8 @@
 import sys
 import os
 from modules.wiki_fetcher import fetch_wikipedia_full_text
+from modules.script_generator import generate_persian_script
+
 
 def main():
     if len(sys.argv) < 2:
@@ -19,6 +21,16 @@ def main():
         f.write(summary)
 
     print(f"Saved to {file_path}")
+
+    print("Generating Persian script...")
+    script = generate_persian_script(country, summary)
+
+    script_path = f"outputs/{country}_script.txt"
+    with open(script_path, "w", encoding="utf-8") as f:
+        f.write(script)
+
+    print(f"Script saved to {script_path}")
+
 
 if __name__ == "__main__":
     main()
