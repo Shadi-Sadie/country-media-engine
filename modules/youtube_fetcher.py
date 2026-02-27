@@ -5,45 +5,22 @@ from config import YOUTUBE_API_KEY
 YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 YOUTUBE_VIDEO_URL = "https://www.googleapis.com/youtube/v3/videos"
 
-CATEGORY_CONFIG = {
-    "music": {
-        "queries": [
-            "{country} traditional music",
-            "{country} live performance",
-            "{country} folk music concert"
-        ],
-        "min_minutes": 3
-    },
-    "life": {
-    "subtopics": {
-        "street_food": "{country} street food",
-        "recipe": "{country} traditional recipe",
-        "village": "{country} village life",
-        "wedding": "{country} wedding",
-        "daily_life": "{country} one day in life"
-    },
-    "min_minutes": 6
-  },
-    "nature": {
-        "queries": [
-            "{country} nature documentary",
-            "{country} scenic 4K",
-            "{country} travel documentary"
-        ],
-        "min_minutes": 8
-    },
-    "history": {
-        "queries": [
-            "{country} history documentary",
-            "{country} politics documentary",
-            "{country} BBC documentary",
-            "{country} PBS documentary",
-            "{country} New York Times documentary",
-            "{country} Guardian documentary"
-        ],
-        "min_minutes": 15
-    }
-}
+
+# --------------------------------------------------
+# Configuration
+# --------------------------------------------------
+
+INSTITUTIONAL_CHANNEL_KEYWORDS = [
+    "bbc",
+    "dw",
+    "pbs",
+    "arte",
+    "al jazeera",
+    "guardian",
+    "new york times",
+    "nyt",
+    "france 24"
+]
 
 BAD_KEYWORDS = [
     "short",
@@ -54,6 +31,62 @@ BAD_KEYWORDS = [
     "trailer"
 ]
 
+GENERAL_CATEGORY_CONFIG = {
+    "music": {
+        "queries": [
+            "{country} traditional music",
+            "{country} live performance",
+            "{country} folk music concert"
+        ],
+        "min_minutes": 3
+    },
+    "life": {
+        "queries": [
+            "{country} street food",
+            "{country} traditional recipe",
+            "{country} village life",
+            "{country} wedding",
+            "{country} one day in life"
+        ],
+        "min_minutes": 6
+    },
+    "nature": {
+        "queries": [
+            "{country} nature documentary",
+            "{country} scenic 4K",
+            "{country} travel documentary"
+        ],
+        "min_minutes": 8
+    }
+}
+
+HISTORY_TIERS = {
+    "tier1": [
+        "{country} BBC documentary",
+        "{country} DW documentary",
+        "{country} PBS documentary",
+        "{country} ARTE documentary",
+        "{country} Al Jazeera documentary",
+        "{country} Guardian documentary",
+        "{country} New York Times documentary"
+    ],
+    "tier2": [
+        "{country} society documentary",
+        "{country} political documentary",
+        "{country} social issues documentary",
+        "{country} minority rights documentary",
+        "{country} rural life documentary"
+    ],
+    "tier3": [
+        "{country} history documentary",
+        "{country} modern history documentary"
+    ]
+}
+
+
+# --------------------------------------------------
+# Utilities
+# --------------------------------------------------
 
 def parse_duration(duration):
     hours = minutes = seconds = 0
@@ -71,14 +104,109 @@ def parse_duration(duration):
     return hours * 60 + minutes + seconds / 60
 
 
-def search_youtube_category(country, category, max_per_category=9):
+def fetch_video_details(video_ids):
+    params = {
+        "part": "contentDetails,snippet",
+        "id": ",".join(video_ids),
+        "key": YOUTUBE_API_KEY
+    }
 
-    if category not in CATEGORY_CONFIG:
-        raise ValueError("Unknown category")
+    response = requests.get(YOUTUBE_VIDEO_URL, params=params)
+    return response.json()
 
-    config = CATEGORY_CONFIG[category]
+
+def score_history_video(title, channel):
+    score = 0
+    title_lower = title.lower()
+    channel_lower = channel.lower()
+
+    if any(key in channel_lower for key in INSTITUTIONAL_CHANNEL_KEYWORDS):
+        score += 3
+
+    if "documentary" in title_lower:
+        score += 2
+
+    if "investigation" in title_lower or "report" in title_lower:
+        score += 1
+
+    return score
+
+
+# --------------------------------------------------
+# History Retrieval (Credibility First)
+# --------------------------------------------------
+
+def search_history(country, max_per_category=9):
     collected = {}
-    
+
+    for tier in ["tier1", "tier2", "tier3"]:
+        for query_template in HISTORY_TIERS[tier]:
+
+            query = query_template.format(country=country)
+
+            search_params = {
+                "part": "snippet",
+                "q": query,
+                "type": "video",
+                "maxResults": 12,
+                "key": YOUTUBE_API_KEY
+            }
+
+            search_response = requests.get(YOUTUBE_SEARCH_URL, params=search_params)
+            search_data = search_response.json()
+
+            video_ids = [
+                item["id"]["videoId"]
+                for item in search_data.get("items", [])
+            ]
+
+            if not video_ids:
+                continue
+
+            video_data = fetch_video_details(video_ids)
+
+            for item in video_data.get("items", []):
+                title = item["snippet"]["title"]
+                channel = item["snippet"]["channelTitle"]
+                duration_minutes = parse_duration(item["contentDetails"]["duration"])
+
+                if duration_minutes < 15:
+                    continue
+
+                if any(bad in title.lower() for bad in BAD_KEYWORDS):
+                    continue
+
+                video_id = item["id"]
+
+                if video_id not in collected:
+                    collected[video_id] = {
+                        "title": title,
+                        "channel": channel,
+                        "url": f"https://youtube.com/watch?v={video_id}",
+                        "duration_minutes": round(duration_minutes, 1),
+                        "score": score_history_video(title, channel)
+                    }
+
+        if len(collected) >= max_per_category:
+            break
+
+    sorted_videos = sorted(
+        collected.values(),
+        key=lambda x: x["score"],
+        reverse=True
+    )
+
+    return sorted_videos[:max_per_category]
+
+
+# --------------------------------------------------
+# General Category Retrieval
+# --------------------------------------------------
+
+def search_general_category(country, category, max_per_category=9):
+    config = GENERAL_CATEGORY_CONFIG[category]
+    collected = {}
+
     for query_template in config["queries"]:
         query = query_template.format(country=country)
 
@@ -86,7 +214,7 @@ def search_youtube_category(country, category, max_per_category=9):
             "part": "snippet",
             "q": query,
             "type": "video",
-            "maxResults": 8,
+            "maxResults": 10,
             "key": YOUTUBE_API_KEY
         }
 
@@ -101,26 +229,16 @@ def search_youtube_category(country, category, max_per_category=9):
         if not video_ids:
             continue
 
-        video_params = {
-            "part": "contentDetails,snippet",
-            "id": ",".join(video_ids),
-            "key": YOUTUBE_API_KEY
-        }
-
-        video_response = requests.get(YOUTUBE_VIDEO_URL, params=video_params)
-        video_data = video_response.json()
+        video_data = fetch_video_details(video_ids)
 
         for item in video_data.get("items", []):
             title = item["snippet"]["title"]
-            title_lower = title.lower()
-
-            if any(bad in title_lower for bad in BAD_KEYWORDS):
-                continue
-
-            duration_iso = item["contentDetails"]["duration"]
-            duration_minutes = parse_duration(duration_iso)
+            duration_minutes = parse_duration(item["contentDetails"]["duration"])
 
             if duration_minutes < config["min_minutes"]:
+                continue
+
+            if any(bad in title.lower() for bad in BAD_KEYWORDS):
                 continue
 
             video_id = item["id"]
@@ -140,3 +258,18 @@ def search_youtube_category(country, category, max_per_category=9):
             break
 
     return list(collected.values())
+
+
+# --------------------------------------------------
+# Public Entry Point
+# --------------------------------------------------
+
+def search_youtube_category(country, category, max_per_category=9):
+
+    if category == "history":
+        return search_history(country, max_per_category)
+
+    if category not in GENERAL_CATEGORY_CONFIG:
+        raise ValueError("Unknown category")
+
+    return search_general_category(country, category, max_per_category)
