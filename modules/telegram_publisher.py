@@ -6,15 +6,21 @@ import os
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
+BASE_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
 
 def send_photo(image_path: str, caption: str) -> bool:
+    RTL = "\u200F"
+    caption = RTL + caption   #
+
     url = f"{BASE_URL}/sendPhoto"
     with open(image_path, "rb") as photo:
         r = requests.post(
             url,
-            data={"chat_id": TELEGRAM_CHAT_ID, "caption": caption},
+            data={"chat_id": TELEGRAM_CHAT_ID,
+                   "caption": caption,
+                   "parse_mode": "HTML"
+                   },
             files={"photo": photo},
             timeout=30,
         )
@@ -25,10 +31,17 @@ def send_photo(image_path: str, caption: str) -> bool:
 
 
 def send_message(text: str) -> bool:
+    RTL = "\u200F"
+    text = RTL + text  
+
     url = f"{BASE_URL}/sendMessage"
     r = requests.post(
         url,
-        data={"chat_id": TELEGRAM_CHAT_ID, "text": text, "disable_web_page_preview": True},
+        data={"chat_id": TELEGRAM_CHAT_ID,
+               "text": text, 
+                "parse_mode": "HTML",
+                "disable_web_page_preview": False
+        },
         timeout=30,
     )
     if r.status_code != 200:

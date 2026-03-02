@@ -3,11 +3,13 @@ import os
 
 from openai import videos
 
+from modules.metadata_fetcher import fetch_country_metadata
 from modules.youtube_fetcher import search_youtube_category
 from modules.wikimedia_fetcher import search_country_image
 from modules.telegram_publisher import publish_photo_then_links
 from modules.title_shortener import short_fa_title
 from modules.telegram_post_generator import generate_caption, generate_links_post
+from modules.metadata_fetcher import fetch_country_metadata
 
 
 def main():
@@ -34,22 +36,14 @@ def main():
             v["fa_label"] = short_fa_title(cat, v.get("title",""), v.get("channel",""))
 
     # Temporary metadata
-    metadata = {
-        "flag": "",
-        "capital": "نامشخص",
-        "area": "نامشخص",
-        "location": "نامشخص",
-        "neighbors": "نامشخص",
-        "population": "نامشخص",
-        "languages": "نامشخص"
-    }
 
+    metadata = fetch_country_metadata(country)
     
     # Hashtags (you can compute week/letter later)
     hashtags = f"#weekXX\n#{country}\n@countries_AtoZ"
 
     caption_text = generate_caption(country, metadata, hashtags)
-    links_text = generate_links_post(country, videos)
+    links_text = generate_links_post(country, videos, hashtags)
 
     
     os.makedirs("outputs", exist_ok=True)

@@ -2,6 +2,8 @@
 
 from datetime import datetime
 
+from matplotlib import lines
+
 
 def format_video_list(videos):
     lines = []
@@ -16,18 +18,19 @@ def format_video_list(videos):
 
 def generate_caption(country: str, metadata: dict, hashtags: str) -> str:
     # Keep this SHORT (caption-safe)
-    lines = [
-        f"{metadata.get('name_fa', country)} {metadata.get('flag', '')}".strip(),
-        f"🏙 پایتخت: {metadata.get('capital', 'نامشخص')}",
-        f"📏 مساحت: {metadata.get('area', 'نامشخص')}",
-        f"📍 موقعیت: {metadata.get('location', 'نامشخص')}",
-        f"🤝 همسایگان: {metadata.get('neighbors', 'نامشخص')}",
-        f"👥 جمعیت: {metadata.get('population', 'نامشخص')}",
-        f"🗣 زبان رسمی: {metadata.get('languages', 'نامشخص')}",
-        "",
-        hashtags.strip(),
+   lines = [
+    f"<b>{metadata.get('name_fa', country)} {metadata.get('flag', '')}</b>".strip(),
+    f"🏙 <b>پایتخت:</b> {metadata.get('capital', 'نامشخص')}",
+    f"📏 <b>مساحت:</b> {metadata.get('area', 'نامشخص')}",
+    f"📍 <b>موقعیت:</b> {metadata.get('location', 'نامشخص')}",
+    f"🤝 <b>همسایگان:</b> {metadata.get('neighbors', 'نامشخص')}",
+    f"👥 <b>جمعیت:</b> {metadata.get('population', 'نامشخص')}",
+    f"🗣 <b>زبان رسمی:</b> {metadata.get('languages', 'نامشخص')}",
+    "",
+    hashtags.strip() if hashtags else ""
+
     ]
-    return "\n".join(lines).strip()
+   return "\n".join(lines).strip()
 
 
 def _short_fa_label(category: str, idx: int) -> str:
@@ -48,25 +51,30 @@ def _format_links(category: str, videos: list) -> str:
     lines = []
     for i, v in enumerate(videos, start=1):
         label = v.get("fa_label") or _short_fa_label(category, i)
-        lines.append(f"▪️{label} ({v['url']})")
+        url = v["url"]
+        lines.append(
+            f'▪️<a href="{url}">{label}</a>'
+            )
     return "\n".join(lines)
 
 
-def generate_links_post(country: str, videos_by_cat: dict) -> str:
-    # This can be LONG — it is a normal message, not a caption.
+def generate_links_post(country: str, videos_by_cat: dict, hashtags: str) -> str:
     parts = [
-        "📽 منابع دیجیتال",
+        "<b>📽 منابع دیجیتال</b>",
         "",
-        "🎵 موسیقی:",
+        "<b>🎵 موسیقی:</b>",
         _format_links("music", videos_by_cat.get("music", [])),
         "",
-        "🍲 زندگی و غذا:",
+        "<b>🍲 زندگی و غذا:</b>",
         _format_links("life", videos_by_cat.get("life", [])),
         "",
-        "🏞 طبیعت و مناظر:",
+        "<b>🏞 طبیعت و مناظر:</b>",
         _format_links("nature", videos_by_cat.get("nature", [])),
         "",
-        "📜 تاریخ، جامعه و سیاست:",
+        "<b>📜 تاریخ، جامعه و سیاست:</b>",
         _format_links("history", videos_by_cat.get("history", [])),
     ]
+    if hashtags:
+        parts.extend(["", hashtags.strip()])
+
     return "\n".join(parts).strip()
