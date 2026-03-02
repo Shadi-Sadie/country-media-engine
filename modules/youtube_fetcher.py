@@ -4,9 +4,6 @@ from config import YOUTUBE_API_KEY
 
 YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 YOUTUBE_VIDEO_URL = "https://www.googleapis.com/youtube/v3/videos"
-MAX_GENERAL_QUERIES_PER_CATEGORY = 2
-MAX_HISTORY_QUERIES_TOTAL = 5
-QUOTA_EXHAUSTED = False
 
 
 # --------------------------------------------------
@@ -44,14 +41,28 @@ GENERAL_CATEGORY_CONFIG = {
         "min_minutes": 3
     },
     "life": {
-        "queries": [
-            "{country} street food",
-            "{country} traditional recipe",
-            "{country} village life",
-            "{country} wedding",
-            "{country} one day in life"
-        ],
-        "min_minutes": 6
+        "subtopics": {
+            "wedding": [
+                "{country} traditional wedding",
+                "traditional wedding in {country}"
+            ],
+            "village": [
+                "{country} village life",
+                "{country} rural life"
+            ],
+            "daily_life": [
+                "{country} one day in life",
+                "{country} daily life"
+            ],
+            "recipe": [
+                "{country} traditional recipe",
+                "{country} cooking"
+            ],
+            "street_food": [
+                "{country} street food"
+            ]
+        },
+        "min_minutes": 4
     },
     "nature": {
         "queries": [
@@ -91,92 +102,6 @@ HISTORY_TIERS = {
 # Utilities
 # --------------------------------------------------
 
-def _extract_api_error(data):
-    error = data.get("error")
-    if not isinstance(error, dict):
-        return "Unknown YouTube API error"
-
-    message = error.get("message", "Unknown message")
-    reasons = []
-    for item in error.get("errors", []):
-        reason = item.get("reason")
-        if reason:
-            reasons.append(reason)
-
-    if reasons:
-        return f"{message} (reasons: {', '.join(sorted(set(reasons)))})"
-
-    return message
-
-
-def _extract_error_reasons(data):
-    error = data.get("error")
-    if not isinstance(error, dict):
-        return set()
-    reasons = set()
-    for item in error.get("errors", []):
-        reason = item.get("reason")
-        if reason:
-            reasons.add(reason)
-    return reasons
-
-
-def _is_quota_error(data):
-    reasons = _extract_error_reasons(data)
-    return (
-        "quotaExceeded" in reasons
-        or "dailyLimitExceeded" in reasons
-        or "rateLimitExceeded" in reasons
-    )
-
-
-def _redact_sensitive(text):
-    if not text:
-        return text
-    if YOUTUBE_API_KEY:
-        return text.replace(YOUTUBE_API_KEY, "<REDACTED>")
-    return text
-
-
-def _safe_get_json(url, params, context):
-    global QUOTA_EXHAUSTED
-    if QUOTA_EXHAUSTED:
-        return {}
-
-    try:
-        response = requests.get(url, params=params, timeout=20)
-    except requests.RequestException as exc:
-        print(f"[YouTube][{context}] request failed: {_redact_sensitive(str(exc))}")
-        return {}
-
-    try:
-        data = response.json()
-    except ValueError:
-        print(
-            f"[YouTube][{context}] non-JSON response "
-            f"(status {response.status_code})."
-        )
-        return {}
-
-    if response.status_code != 200:
-        print(
-            f"[YouTube][{context}] API error (status {response.status_code}): "
-            f"{_extract_api_error(data)}"
-        )
-        if _is_quota_error(data):
-            QUOTA_EXHAUSTED = True
-            print("[YouTube] Quota exhausted. Stopping additional YouTube API calls.")
-        return {}
-
-    if isinstance(data, dict) and "error" in data:
-        print(f"[YouTube][{context}] API error: {_extract_api_error(data)}")
-        if _is_quota_error(data):
-            QUOTA_EXHAUSTED = True
-            print("[YouTube] Quota exhausted. Stopping additional YouTube API calls.")
-        return {}
-
-    return data
-
 def parse_duration(duration):
     hours = minutes = seconds = 0
     h = re.search(r'(\d+)H', duration)
@@ -194,20 +119,14 @@ def parse_duration(duration):
 
 
 def fetch_video_details(video_ids):
-    if not video_ids:
-        return {}
-
     params = {
         "part": "contentDetails,snippet",
         "id": ",".join(video_ids),
         "key": YOUTUBE_API_KEY
     }
 
-    return _safe_get_json(
-        YOUTUBE_VIDEO_URL,
-        params,
-        context=f"video details ({len(video_ids)} ids)"
-    )
+    response = requests.get(YOUTUBE_VIDEO_URL, params=params)
+    return response.json()
 
 
 def score_history_video(title, channel):
@@ -233,18 +152,11 @@ def score_history_video(title, channel):
 
 def search_history(country, max_per_category=9):
     collected = {}
-    history_queries_used = 0
 
     for tier in ["tier1", "tier2", "tier3"]:
-        if QUOTA_EXHAUSTED or history_queries_used >= MAX_HISTORY_QUERIES_TOTAL:
-            break
-
         for query_template in HISTORY_TIERS[tier]:
-            if QUOTA_EXHAUSTED or history_queries_used >= MAX_HISTORY_QUERIES_TOTAL:
-                break
 
             query = query_template.format(country=country)
-            history_queries_used += 1
 
             search_params = {
                 "part": "snippet",
@@ -254,11 +166,8 @@ def search_history(country, max_per_category=9):
                 "key": YOUTUBE_API_KEY
             }
 
-            search_data = _safe_get_json(
-                YOUTUBE_SEARCH_URL,
-                search_params,
-                context=f"history search: {query}"
-            )
+            search_response = requests.get(YOUTUBE_SEARCH_URL, params=search_params)
+            search_data = search_response.json()
 
             video_ids = [
                 item["id"]["videoId"]
@@ -312,10 +221,7 @@ def search_general_category(country, category, max_per_category=9):
     config = GENERAL_CATEGORY_CONFIG[category]
     collected = {}
 
-    for query_template in config["queries"][:MAX_GENERAL_QUERIES_PER_CATEGORY]:
-        if QUOTA_EXHAUSTED:
-            break
-
+    for query_template in config["queries"]:
         query = query_template.format(country=country)
 
         search_params = {
@@ -326,11 +232,8 @@ def search_general_category(country, category, max_per_category=9):
             "key": YOUTUBE_API_KEY
         }
 
-        search_data = _safe_get_json(
-            YOUTUBE_SEARCH_URL,
-            search_params,
-            context=f"{category} search: {query}"
-        )
+        search_response = requests.get(YOUTUBE_SEARCH_URL, params=search_params)
+        search_data = search_response.json()
 
         video_ids = [
             item["id"]["videoId"]
@@ -371,6 +274,114 @@ def search_general_category(country, category, max_per_category=9):
     return list(collected.values())
 
 
+def search_life_with_subtopics(country, max_per_category=9):
+    config = GENERAL_CATEGORY_CONFIG["life"]
+    collected = {}
+
+    # First pass: guarantee at least 1 per subtopic
+    for subtopic, query_list in config["subtopics"].items():
+        for query_template in query_list:
+
+            query = query_template.format(country=country)
+
+            search_params = {
+                "part": "snippet",
+                "q": query,
+                "type": "video",
+                "maxResults": 8,
+                "key": YOUTUBE_API_KEY
+            }
+
+            search_response = requests.get(YOUTUBE_SEARCH_URL, params=search_params)
+            search_data = search_response.json()
+
+            video_ids = [
+                item["id"]["videoId"]
+                for item in search_data.get("items", [])
+            ]
+
+            if not video_ids:
+                continue
+
+            video_data = fetch_video_details(video_ids)
+
+            for item in video_data.get("items", []):
+                title = item["snippet"]["title"]
+                duration_minutes = parse_duration(item["contentDetails"]["duration"])
+
+                if duration_minutes < config["min_minutes"]:
+                    continue
+
+                if any(bad in title.lower() for bad in BAD_KEYWORDS):
+                    continue
+
+                video_id = item["id"]
+
+                if video_id not in collected:
+                    collected[video_id] = {
+                        "title": title,
+                        "channel": item["snippet"]["channelTitle"],
+                        "url": f"https://youtube.com/watch?v={video_id}",
+                        "duration_minutes": round(duration_minutes, 1)
+                    }
+                    break  # move to next subtopic
+
+            if len(collected) >= max_per_category:
+                return list(collected.values())
+
+    # Second pass: fill remaining slots
+    for subtopic, query_list in config["subtopics"].items():
+        for query_template in query_list:
+
+            if len(collected) >= max_per_category:
+                return list(collected.values())
+
+            query = query_template.format(country=country)
+
+            search_params = {
+                "part": "snippet",
+                "q": query,
+                "type": "video",
+                "maxResults": 10,
+                "key": YOUTUBE_API_KEY
+            }
+
+            search_response = requests.get(YOUTUBE_SEARCH_URL, params=search_params)
+            search_data = search_response.json()
+
+            video_ids = [
+                item["id"]["videoId"]
+                for item in search_data.get("items", [])
+            ]
+
+            if not video_ids:
+                continue
+
+            video_data = fetch_video_details(video_ids)
+
+            for item in video_data.get("items", []):
+                title = item["snippet"]["title"]
+                duration_minutes = parse_duration(item["contentDetails"]["duration"])
+
+                if duration_minutes < config["min_minutes"]:
+                    continue
+
+                if any(bad in title.lower() for bad in BAD_KEYWORDS):
+                    continue
+
+                video_id = item["id"]
+
+                if video_id not in collected:
+                    collected[video_id] = {
+                        "title": title,
+                        "channel": item["snippet"]["channelTitle"],
+                        "url": f"https://youtube.com/watch?v={video_id}",
+                        "duration_minutes": round(duration_minutes, 1)
+                    }
+
+    return list(collected.values())[:max_per_category]
+
+
 # --------------------------------------------------
 # Public Entry Point
 # --------------------------------------------------
@@ -379,6 +390,9 @@ def search_youtube_category(country, category, max_per_category=9):
 
     if category == "history":
         return search_history(country, max_per_category)
+    
+    if category == "life":
+        return search_life_with_subtopics(country, max_per_category)
 
     if category not in GENERAL_CATEGORY_CONFIG:
         raise ValueError("Unknown category")
