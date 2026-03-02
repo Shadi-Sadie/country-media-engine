@@ -14,7 +14,7 @@ from modules.wikimedia_fetcher import search_country_image
 from modules.youtube_fetcher import search_youtube_category
 
 
-def _build_script_and_fun_fact(country: str) -> tuple[str, str]:
+def _build_script_and_fun_fact(country: str) -> tuple[str, list[str]]:
     try:
         wiki_text = fetch_wikipedia_full_text(country)
         with open(f"outputs/{country}_wiki.txt", "w", encoding="utf-8") as f:
@@ -24,7 +24,14 @@ def _build_script_and_fun_fact(country: str) -> tuple[str, str]:
 
         result = run_country_pipeline(country, wiki_text)
         script_fa = (result.get("script_fa") or "").strip()
-        fun_fact = (result.get("telegram_fun_fact_fa") or "").strip()
+        fun_facts = result.get("fun_facts") or []
+        if not isinstance(fun_facts, list):
+            fun_facts = []
+        fun_facts = [str(x).strip() for x in fun_facts if str(x).strip()]
+        if not fun_facts:
+            fallback = (result.get("telegram_fun_fact_fa") or "").strip()
+            if fallback:
+                fun_facts = [fallback]
         script_status = (result.get("verify_script_report") or "").strip()
         fun_fact_status = (result.get("verify_fun_fact_status") or "").strip()
 
@@ -33,10 +40,10 @@ def _build_script_and_fun_fact(country: str) -> tuple[str, str]:
         if fun_fact_status and not fun_fact_status.startswith("SUPPORTED"):
             print("Fun fact verification warning:", fun_fact_status)
 
-        return script_fa, fun_fact
+        return script_fa, fun_facts
     except Exception as exc:
         print("Script/fun-fact generation skipped:", exc)
-        return "", ""
+        return "", []
 
 
 def _build_audio(country: str, script_fa: str) -> str:
@@ -128,14 +135,14 @@ def main():
     print("Links saved at:", f"outputs/{country}_links.txt")
 
     print("Generating script and fun fact...")
-    script_text, fun_fact_text = _build_script_and_fun_fact(country)
+    script_text, fun_facts = _build_script_and_fun_fact(country)
     if script_text:
         with open(f"outputs/{country}_script.txt", "w", encoding="utf-8") as f:
             f.write(script_text)
         print("Script saved at:", f"outputs/{country}_script.txt")
-    if fun_fact_text:
+    if fun_facts:
         with open(f"outputs/{country}_fun_fact.txt", "w", encoding="utf-8") as f:
-            f.write(fun_fact_text)
+            f.write("\n\n".join(fun_facts))
         print("Fun fact saved at:", f"outputs/{country}_fun_fact.txt")
 
     print("Generating audio...")
@@ -158,10 +165,18 @@ def main():
         publish_ok = ok_caption and ok_links
         print("Published successfully." if publish_ok else "Publishing failed.")
 
-    if publish_ok and fun_fact_text:
-        print("Publishing fun fact message...")
-        ok_fun = send_message(fun_fact_text)
-        print("Fun fact sent successfully." if ok_fun else "Fun fact sending failed.")
+    if publish_ok and fun_facts:
+        print(f"Publishing {len(fun_facts)} fun fact message(s)...")
+        all_sent = True
+        for idx, fact in enumerate(fun_facts, start=1):
+            ok_fun = send_message(fact)
+            print(
+                f"Fun fact {idx} sent successfully."
+                if ok_fun else f"Fun fact {idx} sending failed."
+            )
+            all_sent = all_sent and ok_fun
+        if len(fun_facts) < 5:
+            print(f"Warning: only {len(fun_facts)} fun facts were available.")
 
     if publish_ok and audio_path:
         print("Publishing audio message...")

@@ -61,6 +61,27 @@ def count_words(text: str) -> int:
     return len([w for w in re.split(r"\s+", text.strip()) if w])
 
 
+def _normalize_fun_fact_line(line: str) -> str:
+    text = (line or "").strip()
+    text = re.sub(r"^\d+[\)\.\-:\s]+", "", text).strip()
+    text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+    if not text:
+        return ""
+    if not text.startswith("▪️"):
+        text = f"▪️ {text}"
+    return text
+
+
+def _parse_fun_facts(raw: str) -> List[str]:
+    lines = [ln.strip() for ln in (raw or "").splitlines() if ln.strip()]
+    facts: List[str] = []
+    for ln in lines:
+        normalized = _normalize_fun_fact_line(ln)
+        if normalized:
+            facts.append(normalized)
+    return facts
+
+
 def call_openai(model, messages, temperature, max_tokens, opt: PipelineOptions):
     attempt = 0
     while True:
@@ -227,16 +248,19 @@ def generate_fun_facts(country: str, week_num: int, country_en: str, opt: Pipeli
     )
 
     user = f"""
-Write 5 distinct cultural Fun Facts about {country} in Persian.
+Write EXACTLY 5 distinct cultural Fun Facts about {country} in Persian.
 
 Rules:
 - Each must describe a specific place, craft, food, ritual, architecture, or historical detail.
 - Avoid generic phrases.
 - 2–3 sentences each.
 - No exaggeration.
+- One fact per line only.
+- No blank lines.
+- Use HTML bold for the short title.
 
-Format:
-<Emoji> **عنوان کوتاه**: description
+Format for each line:
+▪️ <b>عنوان کوتاه</b>: توضیح
 """
 
     raw = call_openai(
@@ -248,10 +272,45 @@ Format:
         opt=opt
     )
 
-    facts = [f.strip() for f in raw.split("\n\n") if f.strip()]
+    facts = _parse_fun_facts(raw)
+
+    if len(facts) < 5:
+        missing = 5 - len(facts)
+        refill_prompt = f"""
+You previously generated fewer than 5 items.
+Generate EXACTLY {missing} additional fun facts for {country}.
+
+Use the same strict format (one line per item):
+▪️ <b>عنوان کوتاه</b>: توضیح
+
+Do not repeat these existing items:
+{chr(10).join(facts)}
+"""
+        refill = call_openai(
+            opt.model_fun_fact,
+            [{"role": "developer", "content": developer},
+             {"role": "user", "content": refill_prompt}],
+            opt.temperature_fun_fact,
+            max_tokens=800,
+            opt=opt
+        )
+        extra = _parse_fun_facts(refill)
+        for item in extra:
+            if item not in facts:
+                facts.append(item)
+            if len(facts) >= 5:
+                break
+
+    while len(facts) < 5:
+        idx = len(facts) + 1
+        facts.append(
+            f"▪️ <b>دانستنی {idx}</b>: (در منبع فعلی نکتهٔ کوتاه و قابل اتکای بیشتری پیدا نشد.)"
+        )
+
+    facts = facts[:5]
 
     formatted = []
-    for fact in facts[:5]:
+    for fact in facts:
         footer = (
             f"\n\n#week{week_num:02d} "
             f"#{country_en} "
@@ -309,16 +368,18 @@ Script:
 
 def run_country_pipeline(country: str,
                          source_text: str,
-                         week_num: int,
-                         country_en: str,
+                         week_num: int = 2,
+                         country_en: Optional[str] = None,
                          opt: Optional[PipelineOptions] = None) -> Dict[str, object]:
 
     opt = opt or PipelineOptions()
+    country_en = country_en or country
 
     notes = extract_structured_notes(country, source_text, opt)
     script = generate_persian_script(country, notes, opt)
     fun_facts = generate_fun_facts(country, week_num, country_en, opt)
     verification = verify_script(country, notes, script, opt)
+    primary_fun_fact = fun_facts[0] if fun_facts else ""
 
     return {
         "country": country,
@@ -326,7 +387,11 @@ def run_country_pipeline(country: str,
         "script_fa": script,
         "script_word_count": str(count_words(script)),
         "fun_facts": fun_facts,
-        "verification": verification
+        "verification": verification,
+        # Backward-compatible keys expected by main.py integration.
+        "telegram_fun_fact_fa": primary_fun_fact,
+        "verify_script_report": verification,
+        "verify_fun_fact_status": "",
     }
 
 
