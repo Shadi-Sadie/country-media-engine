@@ -1,10 +1,13 @@
 import sys
 import os
 
+from openai import videos
+
 from modules.youtube_fetcher import search_youtube_category
-from modules.telegram_post_generator import generate_telegram_post
 from modules.wikimedia_fetcher import search_country_image
-from modules.telegram_publisher import send_photo_with_caption
+from modules.telegram_publisher import publish_photo_then_links
+from modules.title_shortener import short_fa_title
+from modules.telegram_post_generator import generate_caption, generate_links_post
 
 
 def main():
@@ -25,6 +28,11 @@ def main():
         "history": search_youtube_category(country, "history")
     }
 
+  # Add short Persian labels
+    for cat, items in videos.items():
+        for v in items:
+            v["fa_label"] = short_fa_title(cat, v.get("title",""), v.get("channel",""))
+
     # Temporary metadata
     metadata = {
         "flag": "",
@@ -36,16 +44,26 @@ def main():
         "languages": "نامشخص"
     }
 
-    print("Generating Telegram post...")
-    post = generate_telegram_post(country, metadata, videos)
+    
+    # Hashtags (you can compute week/letter later)
+    hashtags = f"#weekXX\n#{country}\n@countries_AtoZ"
 
+    caption_text = generate_caption(country, metadata, hashtags)
+    links_text = generate_links_post(country, videos)
+
+    
     os.makedirs("outputs", exist_ok=True)
 
     post_path = f"outputs/{country}_telegram.txt"
     with open(post_path, "w", encoding="utf-8") as f:
-        f.write(post)
+        f.write(caption_text 
+                )
+    with open(f"outputs/{country}_links.txt", "w", encoding="utf-8") as f:
+        f.write(links_text)
 
-    print("Telegram post saved at:", post_path)
+    print("Caption saved at:", f"outputs/{country}_caption.txt")
+    print("Links saved at:", f"outputs/{country}_links.txt")
+
 
     print("Fetching Wikimedia image...")
     image_path = search_country_image(country)
@@ -56,13 +74,12 @@ def main():
 
     print("Image saved at:", image_path)
 
-    print("Publishing to Telegram...")
-    success = send_photo_with_caption(image_path, post)
+    
+    print("Publishing to Telegram (photo caption + separate links message)...")
+    ok = publish_photo_then_links(image_path, caption_text, links_text)
 
-    if success:
-        print("Published successfully.")
-    else:
-        print("Publishing failed.")
+    print("Published successfully." if ok else "Publishing failed.")
+
 
 
 if __name__ == "__main__":

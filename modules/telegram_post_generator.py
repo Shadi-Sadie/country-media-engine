@@ -12,54 +12,61 @@ def format_video_list(videos):
     return "\n".join(lines)
 
 
-def generate_telegram_post(country, metadata, videos):
+# modules/telegram_post_generator.py
 
-    post_lines = []
+def generate_caption(country: str, metadata: dict, hashtags: str) -> str:
+    # Keep this SHORT (caption-safe)
+    lines = [
+        f"{metadata.get('name_fa', country)} {metadata.get('flag', '')}".strip(),
+        f"🏙 پایتخت: {metadata.get('capital', 'نامشخص')}",
+        f"📏 مساحت: {metadata.get('area', 'نامشخص')}",
+        f"📍 موقعیت: {metadata.get('location', 'نامشخص')}",
+        f"🤝 همسایگان: {metadata.get('neighbors', 'نامشخص')}",
+        f"👥 جمعیت: {metadata.get('population', 'نامشخص')}",
+        f"🗣 زبان رسمی: {metadata.get('languages', 'نامشخص')}",
+        "",
+        hashtags.strip(),
+    ]
+    return "\n".join(lines).strip()
 
-    # Header
-    post_lines.append(f"{country} {metadata.get('flag', '')}")
-    post_lines.append("")
 
-    # Basic Info
-    post_lines.append(f"🔹پایتخت: {metadata.get('capital', 'نامشخص')}")
-    post_lines.append(f"🔹مساحت: {metadata.get('area', 'نامشخص')}")
-    post_lines.append(f"🔹موقعیت جغرافیایی: {metadata.get('location', 'نامشخص')}")
-    post_lines.append(f"🔹همسایگان: {metadata.get('neighbors', 'نامشخص')}")
-    post_lines.append(f"🔹جمعیت: {metadata.get('population', 'نامشخص')}")
-    post_lines.append(f"🔹زبان‌های رسمی: {metadata.get('languages', 'نامشخص')}")
-    post_lines.append("")
+def _short_fa_label(category: str, idx: int) -> str:
+    # Minimal no-API labels (you can improve later)
+    base = {
+        "music": "موسیقی",
+        "life": "زندگی و غذا",
+        "nature": "طبیعت و مناظر",
+        "history": "تاریخ، جامعه و سیاست",
+    }.get(category, "ویدئو")
+    # Persian digits optional; keep simple for now
+    return f"{base} {idx}"
 
-    post_lines.append("📌 منابع دیجیتال")
-    post_lines.append("")
 
-    # Music
-    if videos.get("music"):
-        post_lines.append("🎵 موسیقی:")
-        post_lines.append(format_video_list(videos["music"]))
-        post_lines.append("")
+def _format_links(category: str, videos: list) -> str:
+    if not videos:
+        return "▪️موردی پیدا نشد"
+    lines = []
+    for i, v in enumerate(videos, start=1):
+        label = v.get("fa_label") or _short_fa_label(category, i)
+        lines.append(f"▪️{label} ({v['url']})")
+    return "\n".join(lines)
 
-    # Life
-    if videos.get("life"):
-        post_lines.append("🍲 زندگی و غذا:")
-        post_lines.append(format_video_list(videos["life"]))
-        post_lines.append("")
 
-    # Nature
-    if videos.get("nature"):
-        post_lines.append("🏞 طبیعت و دیدنی‌ها:")
-        post_lines.append(format_video_list(videos["nature"]))
-        post_lines.append("")
-
-    # History
-    if videos.get("history"):
-        post_lines.append("📜 تاریخ، سیاست و جامعه:")
-        post_lines.append(format_video_list(videos["history"]))
-        post_lines.append("")
-
-    # Hashtags
-    week_number = datetime.now().isocalendar()[1]
-    post_lines.append(f"#week{week_number}")
-    post_lines.append(f"#{country.replace(' ', '')}")
-    post_lines.append(f"@countries_AtoZ")
-
-    return "\n".join(post_lines)
+def generate_links_post(country: str, videos_by_cat: dict) -> str:
+    # This can be LONG — it is a normal message, not a caption.
+    parts = [
+        "📽 منابع دیجیتال",
+        "",
+        "🎵 موسیقی:",
+        _format_links("music", videos_by_cat.get("music", [])),
+        "",
+        "🍲 زندگی و غذا:",
+        _format_links("life", videos_by_cat.get("life", [])),
+        "",
+        "🏞 طبیعت و مناظر:",
+        _format_links("nature", videos_by_cat.get("nature", [])),
+        "",
+        "📜 تاریخ، جامعه و سیاست:",
+        _format_links("history", videos_by_cat.get("history", [])),
+    ]
+    return "\n".join(parts).strip()
