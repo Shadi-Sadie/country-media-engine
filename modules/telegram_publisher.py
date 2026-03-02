@@ -9,24 +9,37 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
 
-def send_photo_with_caption(image_path, caption_text):
-
-    url = f"{TELEGRAM_API_URL}/sendPhoto"
-
+def send_photo(image_path: str, caption: str) -> bool:
+    url = f"{BASE_URL}/sendPhoto"
     with open(image_path, "rb") as photo:
-        response = requests.post(
+        r = requests.post(
             url,
-            data={
-                "chat_id": TELEGRAM_CHAT_ID,
-                "caption": caption_text
-            },
-            files={
-                "photo": photo
-            }
+            data={"chat_id": TELEGRAM_CHAT_ID, "caption": caption},
+            files={"photo": photo},
+            timeout=30,
         )
-
-    if response.status_code != 200:
-        print("Telegram error:", response.text)
+    if r.status_code != 200:
+        print("Telegram sendPhoto error:", r.text)
         return False
+    return True
 
+
+def send_message(text: str) -> bool:
+    url = f"{BASE_URL}/sendMessage"
+    r = requests.post(
+        url,
+        data={"chat_id": TELEGRAM_CHAT_ID, "text": text, "disable_web_page_preview": True},
+        timeout=30,
+    )
+    if r.status_code != 200:
+        print("Telegram sendMessage error:", r.text)
+        return False
+    return True
+
+
+def publish_photo_then_links(image_path: str, caption: str, links_text: str) -> bool:
+    if not send_photo(image_path, caption):
+        return False
+    if not send_message(links_text):
+        return False
     return True
