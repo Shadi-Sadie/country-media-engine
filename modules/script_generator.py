@@ -1,15 +1,16 @@
 """
-Countries A–Z Clean Pipeline
+Countries A–Z Production Pipeline
 
 Architecture:
-1) Extract structured notes from provided source
-2) Generate high-quality grounded Persian script
+1) Extract detailed structured notes from provided source
+2) Generate high-quality grounded Persian script (2-pass if needed)
 3) Generate independent cultural fun facts
-4) Verify script only (not fun facts)
+4) Verify script against extracted notes
 
-Requires:
-    pip install openai
-    export OPENAI_API_KEY=...
+Optimized for:
+- 900–1100 Persian words (~5000 characters)
+- GPT-4o literary quality
+- Stable output token handling
 """
 
 from __future__ import annotations
@@ -22,9 +23,9 @@ from typing import Dict, List, Optional
 from openai import OpenAI, APIConnectionError, APIStatusError, AuthenticationError, RateLimitError
 
 
-# -----------------------------
+# =============================
 # Configuration
-# -----------------------------
+# =============================
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
@@ -36,7 +37,7 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 @dataclass
 class PipelineOptions:
     model_extract: str = "gpt-4o-mini"
-    model_generate: str = "gpt-4o"          # Stronger model for writing
+    model_generate: str = "gpt-4o"
     model_fun_fact: str = "gpt-4o"
     model_verify: str = "gpt-4o-mini"
 
@@ -52,24 +53,29 @@ class PipelineOptions:
     base_backoff_s: float = 0.8
 
 
-# -----------------------------
+# =============================
 # Utilities
-# -----------------------------
+# =============================
 
 def count_words(text: str) -> int:
     return len([w for w in re.split(r"\s+", text.strip()) if w])
 
 
-def call_openai(model, messages, temperature, opt: PipelineOptions):
+def call_openai(model, messages, temperature, max_tokens, opt: PipelineOptions):
     attempt = 0
     while True:
         try:
-            response = client.responses.create(
+            resp = client.responses.create(
                 model=model,
                 input=messages,
                 temperature=temperature,
+                max_output_tokens=max_tokens,
             )
-            return response.output_text.strip()
+            output = resp.output_text.strip()
+            if not output:
+                raise RuntimeError("Empty response from OpenAI.")
+            return output
+
         except AuthenticationError:
             raise RuntimeError("Authentication failed.")
         except (APIConnectionError, RateLimitError):
@@ -87,22 +93,23 @@ def call_openai(model, messages, temperature, opt: PipelineOptions):
                 raise
 
 
-# -----------------------------
-# Step 1 — Extract Structured Notes (Grounded)
-# -----------------------------
+# =============================
+# Step 1 — Detailed Extraction
+# =============================
 
 def extract_structured_notes(country: str, source_text: str, opt: PipelineOptions) -> str:
 
-    developer = "You extract structured factual information."
+    developer = "You extract detailed structured factual information."
 
     user = f"""
-Extract structured factual notes about {country} from the source text.
+Extract detailed structured factual notes about {country}.
 
-Rules:
-- Only use explicit information from the source.
-- Preserve numbers and dates exactly.
-- If the source states relationships explicitly, include them.
-- Do not invent explanations.
+CRITICAL:
+- Capture as much detail as possible.
+- Do NOT summarize aggressively.
+- Preserve names, dates, numbers, geographic features, institutions, and events.
+- Include descriptive detail when present in the source.
+- Do not invent anything.
 
 Organize under headings:
 1. Geography
@@ -124,13 +131,14 @@ Source:
         [{"role": "developer", "content": developer},
          {"role": "user", "content": user}],
         opt.temperature_extract,
-        opt
+        max_tokens=2000,
+        opt=opt
     )
 
 
-# -----------------------------
-# Step 2 — High-Quality Grounded Script
-# -----------------------------
+# =============================
+# Step 2 — Script Generation
+# =============================
 
 def generate_persian_script(country: str, notes: str, opt: PipelineOptions) -> str:
 
@@ -140,26 +148,29 @@ def generate_persian_script(country: str, notes: str, opt: PipelineOptions) -> s
     )
 
     user = f"""
-Write a high-quality Persian documentary script about {country}.
+Write a Persian documentary script about {country}.
 
-Accuracy rules:
-- Base the narration strictly on the structured notes.
-- You may connect and explain relationships.
+Accuracy:
+- Base narration strictly on structured notes.
+- You may explain relationships and implications.
 - Do NOT introduce new factual claims.
 - Do NOT add new numbers or dates.
 
 Style:
 - Calm, analytical, mature tone.
 - Vary sentence length.
-- Avoid repetitive openings.
 - Use smooth transitions (اما، در عین حال، با این حال).
-- No headings.
-- No bullet points.
+- No headings or bullet points.
 - Suitable for voice narration.
-- End with a reflective, restrained final sentence.
+- End with a reflective but restrained final sentence.
 
 Length:
 {opt.total_words_min}–{opt.total_words_max} Persian words.
+
+If the script feels short, expand analytical depth in:
+- Historical transitions
+- Social structure
+- Geographic implications
 
 Notes:
 <<<
@@ -167,50 +178,77 @@ Notes:
 >>>
 """
 
-    return call_openai(
+    script = call_openai(
         opt.model_generate,
         [{"role": "developer", "content": developer},
          {"role": "user", "content": user}],
         opt.temperature_generate,
-        opt
+        max_tokens=3000,
+        opt=opt
     )
 
+    # Second-pass expansion if too short
+    wc = count_words(script)
+    if wc < opt.total_words_min:
+        expand_prompt = f"""
+Expand the script below to {opt.total_words_min}–{opt.total_words_max} Persian words.
 
-# -----------------------------
-# Step 3 — Cultural Fun Facts (Independent Knowledge)
-# -----------------------------
+Rules:
+- Do NOT introduce new facts.
+- Deepen analysis and transitions.
+- Improve descriptive richness.
+
+SCRIPT:
+<<<
+{script}
+>>>
+"""
+        script = call_openai(
+            opt.model_generate,
+            [{"role": "developer", "content": developer},
+             {"role": "user", "content": expand_prompt}],
+            opt.temperature_generate,
+            max_tokens=3000,
+            opt=opt
+        )
+
+    return script
+
+
+# =============================
+# Step 3 — Cultural Fun Facts
+# =============================
 
 def generate_fun_facts(country: str, week_num: int, country_en: str, opt: PipelineOptions) -> List[str]:
 
     developer = (
         "You are a cultural historian and travel writer. "
-        "You write vivid, concrete cultural mini-features."
+        "You write vivid, specific, culturally grounded mini-features."
     )
 
     user = f"""
 Write 5 distinct cultural Fun Facts about {country} in Persian.
 
 Rules:
-- Each fact must describe something specific and concrete
-  (a named place, craft, ritual, food, architecture, law, tradition).
-- Avoid generic statements.
+- Each must describe a specific place, craft, food, ritual, architecture, or historical detail.
+- Avoid generic phrases.
 - 2–3 sentences each.
-- Informative and precise.
 - No exaggeration.
 
 Format:
-<Emoji> **عنوان کوتاه**: 2–3 sentence description.
+<Emoji> **عنوان کوتاه**: description
 """
 
-    raw_output = call_openai(
+    raw = call_openai(
         opt.model_fun_fact,
         [{"role": "developer", "content": developer},
          {"role": "user", "content": user}],
         opt.temperature_fun_fact,
-        opt
+        max_tokens=1200,
+        opt=opt
     )
 
-    facts = [f.strip() for f in raw_output.split("\n\n") if f.strip()]
+    facts = [f.strip() for f in raw.split("\n\n") if f.strip()]
 
     formatted = []
     for fact in facts[:5]:
@@ -225,21 +263,21 @@ Format:
     return formatted
 
 
-# -----------------------------
-# Step 4 — Script Verification (Grounded Only)
-# -----------------------------
+# =============================
+# Step 4 — Script Verification
+# =============================
 
 def verify_script(country: str, notes: str, script: str, opt: PipelineOptions) -> str:
 
     developer = "You are a strict factual verifier."
 
     user = f"""
-Compare the script against the structured notes.
+Compare the script to the structured notes.
 
-Flag any sentence that:
-- Introduces new facts,
-- Adds new numbers/dates,
-- Makes unsupported causal claims.
+Flag sentences that:
+- Add new facts
+- Add new numbers or dates
+- Make unsupported causal claims
 
 If clean, output:
 CLEAN
@@ -260,13 +298,14 @@ Script:
         [{"role": "developer", "content": developer},
          {"role": "user", "content": user}],
         opt.temperature_verify,
-        opt
+        max_tokens=800,
+        opt=opt
     )
 
 
-# -----------------------------
+# =============================
 # Full Pipeline
-# -----------------------------
+# =============================
 
 def run_country_pipeline(country: str,
                          source_text: str,
@@ -291,9 +330,9 @@ def run_country_pipeline(country: str,
     }
 
 
-# -----------------------------
+# =============================
 # Example
-# -----------------------------
+# =============================
 
 if __name__ == "__main__":
 
@@ -307,6 +346,9 @@ if __name__ == "__main__":
 
     print("\n=== SCRIPT ===\n")
     print(result["script_fa"])
+
+    print("\n=== WORD COUNT ===\n")
+    print(result["script_word_count"])
 
     print("\n=== FUN FACTS ===\n")
     for f in result["fun_facts"]:
