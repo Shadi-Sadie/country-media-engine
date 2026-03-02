@@ -78,3 +78,11 @@ def generate_links_post(country: str, videos_by_cat: dict, hashtags: str) -> str
         parts.extend(["", hashtags.strip()])
 
     return "\n".join(parts).strip()
+
+
+def generate_audio_caption(country_en: str, country_fa: str, hashtags: str) -> str:
+    intro = f"مرور صوتی ویکی‌پدیا {country_fa or country_en}؛ تهیه شده با هوش مصنوعی."
+    tags = (hashtags or "").strip()
+    if tags:
+        return f"{intro}\n{tags}"
+    return intro
