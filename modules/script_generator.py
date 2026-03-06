@@ -43,7 +43,7 @@ class PipelineOptions:
 
     temperature_extract: float = 0.0
     temperature_generate: float = 0.6
-    temperature_fun_fact: float = 0.7
+    temperature_fun_fact: float = 0.55
     temperature_verify: float = 0.0
 
     total_words_min: int = 900
@@ -240,86 +240,33 @@ SCRIPT:
 # Step 3 — Cultural Fun Facts
 # =============================
 
-def generate_fun_facts(country: str, week_num: int, country_en: str, opt: PipelineOptions) -> List[str]:
+def generate_fun_facts(country: str, opt: PipelineOptions) -> List[str]:
 
-    developer = (
-        "You are a cultural historian and travel writer. "
-        "You write vivid, specific, culturally grounded mini-features."
-    )
-
-    user = f"""
-Write EXACTLY 5 distinct cultural Fun Facts about {country} in Persian.
+    prompt = f"""
+Tell me several interesting fun facts about {country} in Persian.
 
 Rules:
-- Each must describe a specific place, craft, food, ritual, architecture, or historical detail.
-- Avoid generic phrases.
-- 2–3 sentences each.
-- No exaggeration.
-- One fact per line only.
-- No blank lines.
-- Use HTML bold for the short title.
-
-Format for each line:
-▪️ <b>عنوان کوتاه</b>: توضیح
+- Give multiple facts (at least 3).
+- Each fact should be on a new line.
+- Avoid generic statements.
+- Use this exact format for each line:
+  ▪️ <b>عنوان کوتاه</b>: توضیح
 """
 
     raw = call_openai(
         opt.model_fun_fact,
-        [{"role": "developer", "content": developer},
-         {"role": "user", "content": user}],
+        [{"role": "user", "content": prompt}],
         opt.temperature_fun_fact,
-        max_tokens=1200,
+        max_tokens=800,
         opt=opt
     )
 
     facts = _parse_fun_facts(raw)
-
-    if len(facts) < 5:
-        missing = 5 - len(facts)
-        refill_prompt = f"""
-You previously generated fewer than 5 items.
-Generate EXACTLY {missing} additional fun facts for {country}.
-
-Use the same strict format (one line per item):
-▪️ <b>عنوان کوتاه</b>: توضیح
-
-Do not repeat these existing items:
-{chr(10).join(facts)}
-"""
-        refill = call_openai(
-            opt.model_fun_fact,
-            [{"role": "developer", "content": developer},
-             {"role": "user", "content": refill_prompt}],
-            opt.temperature_fun_fact,
-            max_tokens=800,
-            opt=opt
-        )
-        extra = _parse_fun_facts(refill)
-        for item in extra:
-            if item not in facts:
-                facts.append(item)
-            if len(facts) >= 5:
-                break
-
-    while len(facts) < 5:
-        idx = len(facts) + 1
-        facts.append(
-            f"▪️ <b>دانستنی {idx}</b>: (در منبع فعلی نکتهٔ کوتاه و قابل اتکای بیشتری پیدا نشد.)"
-        )
-
-    facts = facts[:5]
-
-    formatted = []
-    for fact in facts:
-        footer = (
-            f"\n\n#week{week_num:02d} "
-            f"#{country_en} "
-            f"#{country.replace(' ', '_')} "
-            f"@countries_AtoZ"
-        )
-        formatted.append(fact + footer)
-
-    return formatted
+    if not facts:
+        # Fallback if model ignores format completely.
+        facts = [f.strip() for f in (raw or "").split("\n") if f.strip()]
+        facts = _parse_fun_facts("\n".join(facts))
+    return facts
 
 
 # =============================
@@ -377,7 +324,7 @@ def run_country_pipeline(country: str,
 
     notes = extract_structured_notes(country, source_text, opt)
     script = generate_persian_script(country, notes, opt)
-    fun_facts = generate_fun_facts(country, week_num, country_en, opt)
+    fun_facts = generate_fun_facts(country, opt)
     verification = verify_script(country, notes, script, opt)
     primary_fun_fact = fun_facts[0] if fun_facts else ""
 

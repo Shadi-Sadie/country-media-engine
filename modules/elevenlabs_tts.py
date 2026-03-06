@@ -180,6 +180,14 @@ def elevenlabs_tts_chunk(
         },
     }
 
+    timeout_raw = os.getenv("ELEVENLABS_TTS_TIMEOUT_SECONDS", "").strip()
+    try:
+        timeout_seconds = int(timeout_raw) if timeout_raw else 300
+    except ValueError:
+        timeout_seconds = 300
+    if timeout_seconds < 60:
+        timeout_seconds = 60
+
     r = requests.post(
         url,
         headers={
@@ -188,7 +196,7 @@ def elevenlabs_tts_chunk(
             "Accept": "audio/mpeg",
         },
         data=json.dumps(payload),
-        timeout=120,
+        timeout=timeout_seconds,
     )
     r.raise_for_status()
     return r.content

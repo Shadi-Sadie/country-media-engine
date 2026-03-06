@@ -1,5 +1,7 @@
 import argparse
 import os
+import re
+from pathlib import Path
 
 from modules.metadata_fetcher import fetch_country_metadata
 from modules.telegram_post_generator import (
@@ -134,6 +136,99 @@ def _build_audio(country: str, script_fa: str, dry_run: bool = False) -> str:
         return ""
 
 
+def _split_fun_fact_and_footer(fact: str) -> tuple[str, str]:
+    text = (fact or "").strip()
+    if not text:
+        return "", ""
+    parts = text.rsplit("\n\n", 1)
+    if len(parts) == 2:
+        body, tail = parts[0].strip(), parts[1].strip()
+        if ("#" in tail or "@" in tail) and len(tail.split()) <= 20:
+            return body, tail
+    return text, ""
+
+
+def _send_fun_facts_combined(fun_facts: list[str], country: str = "") -> bool:
+    facts = [str(x).strip() for x in (fun_facts or []) if str(x).strip()]
+    if not facts:
+        return False
+    bodies: list[str] = []
+    footer = ""
+    for fact in facts:
+        body, found_footer = _split_fun_fact_and_footer(fact)
+        if body:
+            bodies.append(body)
+        if not footer and found_footer:
+            footer = found_footer
+
+    if not bodies:
+        return False
+
+    if not footer and country:
+        short_tag = f"#{country[0].upper()}" if country and country[0].isalpha() else ""
+        footer = f"#week02 #{country} {short_tag} @countries_AtoZ".replace("  ", " ").strip()
+
+    payload = "\n\n".join(bodies)
+    if footer:
+        payload = f"{payload}\n\n{footer}"
+    return send_message(payload)
+
+
+def _publish_from_outputs(country: str) -> bool:
+    out_dir = Path("outputs")
+    caption_path = out_dir / f"{country}_telegram.txt"
+    links_path = out_dir / f"{country}_links.txt"
+    fun_fact_path = out_dir / f"{country}_fun_fact.txt"
+    audio_path = out_dir / f"{country}.mp3"
+
+    image_path = None
+    for ext in (".png", ".jpg", ".jpeg"):
+        candidate = out_dir / f"{country}_image{ext}"
+        if candidate.exists():
+            image_path = str(candidate)
+            break
+
+    if not caption_path.exists() or not links_path.exists():
+        print(
+            "Publish-only mode failed: missing caption or links file in outputs "
+            f"({caption_path.name}, {links_path.name})."
+        )
+        return False
+
+    caption_text = caption_path.read_text(encoding="utf-8").strip()
+    links_text = links_path.read_text(encoding="utf-8").strip()
+
+    publish_ok = False
+    if image_path:
+        print("Publishing from outputs (photo caption + separate links message)...")
+        publish_ok = publish_photo_then_links(image_path, caption_text, links_text)
+    else:
+        print("Image not found in outputs. Publishing text-only (caption + links).")
+        ok_caption = send_message(caption_text)
+        ok_links = send_message(links_text)
+        publish_ok = ok_caption and ok_links
+
+    print("Published successfully." if publish_ok else "Publishing failed.")
+
+    if publish_ok and fun_fact_path.exists():
+        content = fun_fact_path.read_text(encoding="utf-8").strip()
+        facts = [x.strip() for x in re.split(r"\n\n(?=▪️)", content) if x.strip()] if content else []
+        if facts:
+            print(f"Publishing {len(facts)} fun facts as one message...")
+            ok_fun = _send_fun_facts_combined(facts, country=country)
+            print("Fun facts sent successfully." if ok_fun else "Fun facts sending failed.")
+
+    if publish_ok and audio_path.exists() and audio_path.stat().st_size > 0:
+        print("Publishing audio from outputs...")
+        hashtags_inline = f"#week02 #{country} #{country[0].upper()}" if country else "#week02"
+        hashtags_inline = f"{hashtags_inline} @countries_AtoZ".strip()
+        audio_caption = generate_audio_caption(country, country, hashtags_inline)
+        ok_audio = send_audio(str(audio_path), audio_caption, title=country)
+        print("Audio sent." if ok_audio else "Audio send failed.")
+
+    return publish_ok
+
+
 def main():
     parser = argparse.ArgumentParser(description="Country media pipeline")
     parser.add_argument("country", help="Country name, e.g. Algeria")
@@ -142,10 +237,19 @@ def main():
         action="store_true",
         help="Generate only ElevenLabs audio from outputs/<Country>_script.txt",
     )
+    parser.add_argument(
+        "--publish-only",
+        action="store_true",
+        help="Publish only from existing outputs files (no generation).",
+    )
     args = parser.parse_args()
 
     country = args.country
     print(f"\n=== Generating media package for {country} ===\n")
+
+    if args.voice_only and args.publish_only:
+        print("Choose only one mode: --voice-only or --publish-only")
+        return
 
     if args.voice_only:
         script_file = f"outputs/{country}_script.txt"
@@ -165,6 +269,10 @@ def main():
         )
         if audio_path:
             print("Audio saved at:", audio_path)
+        return
+
+    if args.publish_only:
+        _publish_from_outputs(country)
         return
 
     print("Fetching YouTube videos...")
@@ -234,15 +342,9 @@ def main():
         print("Published successfully." if publish_ok else "Publishing failed.")
 
     if publish_ok and fun_facts:
-        print(f"Publishing {len(fun_facts)} fun fact message(s)...")
-        all_sent = True
-        for idx, fact in enumerate(fun_facts, start=1):
-            ok_fun = send_message(fact)
-            print(
-                f"Fun fact {idx} sent successfully."
-                if ok_fun else f"Fun fact {idx} sending failed."
-            )
-            all_sent = all_sent and ok_fun
+        print(f"Publishing {len(fun_facts)} fun facts as one message...")
+        all_sent = _send_fun_facts_combined(fun_facts, country=country)
+        print("Fun facts sent successfully." if all_sent else "Fun facts sending failed.")
         if len(fun_facts) < 5:
             print(f"Warning: only {len(fun_facts)} fun facts were available.")
 
