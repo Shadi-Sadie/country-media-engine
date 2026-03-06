@@ -1,5 +1,5 @@
+import argparse
 import os
-import sys
 
 from modules.metadata_fetcher import fetch_country_metadata
 from modules.telegram_post_generator import (
@@ -12,6 +12,13 @@ from modules.title_shortener import short_fa_title
 from modules.wiki_fetcher import fetch_wikipedia_full_text
 from modules.wikimedia_fetcher import search_country_image
 from modules.youtube_fetcher import search_youtube_category
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _build_script_and_fun_fact(country: str) -> tuple[str, list[str]]:
@@ -46,9 +53,14 @@ def _build_script_and_fun_fact(country: str) -> tuple[str, list[str]]:
         return "", []
 
 
-def _build_audio(country: str, script_fa: str) -> str:
+def _build_audio(country: str, script_fa: str, dry_run: bool = False) -> str:
     audio_path = f"outputs/{country}.mp3"
-    if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
+    overwrite = _env_flag("ELEVENLABS_OVERWRITE", default=False)
+    if not overwrite and os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
+        print(
+            f"Audio already exists at {audio_path}. "
+            "Set ELEVENLABS_OVERWRITE=1 to regenerate."
+        )
         return audio_path
 
     script_text = (script_fa or "").strip()
@@ -62,32 +74,59 @@ def _build_audio(country: str, script_fa: str) -> str:
         print("Audio generation skipped: no script text available.")
         return ""
 
-    try:
-        from modules.edge_tts import edge_script_to_mp3
+    force_chunk = _env_flag("ELEVENLABS_FORCE_CHUNK", default=False)
+    max_chars_raw = os.getenv("ELEVENLABS_MAX_CHARS", "").strip()
+    max_chars = None
+    if max_chars_raw:
+        try:
+            max_chars = int(max_chars_raw)
+        except ValueError:
+            print("Invalid ELEVENLABS_MAX_CHARS value; falling back to model default.")
 
-        voice = os.getenv("EDGE_TTS_VOICE", "fa-IR-DilaraNeural")
-        out_path = edge_script_to_mp3(
-            script_fa=script_text,
-            output_path=audio_path,
-            voice=voice,
+    try:
+        from modules.elevenlabs_tts import (
+            build_tts_plan,
+            resolve_model_id,
+            resolve_voice_id,
+            elevenlabs_preflight,
+            elevenlabs_script_to_mp3,
         )
-        return str(out_path)
-    except Exception as edge_exc:
-        print("Edge TTS failed, trying ElevenLabs:", edge_exc)
+        model_id = resolve_model_id()
+        voice_id = resolve_voice_id()
 
-    voice_id = os.getenv("ELEVENLABS_VOICE_ID", "").strip()
-    if not voice_id:
-        print("Audio generation skipped: ELEVENLABS_VOICE_ID is not set.")
-        return ""
+        plan = build_tts_plan(
+            script_fa=script_text,
+            model_id=model_id,
+            max_chars=max_chars,
+            force_chunk=force_chunk,
+        )
+        print(
+            "ElevenLabs plan:",
+            f"model={model_id}, chars={plan['char_count']}, chunks={plan['chunk_count']},",
+            f"chunk_size={plan['chunk_size']}",
+        )
 
-    try:
-        from modules.elevenlabs_tts import elevenlabs_script_to_mp3
+        preflight = elevenlabs_preflight(voice_id=voice_id, model_id=model_id)
+        voice_name = preflight.get("voice_name")
+        if voice_name:
+            print(f"ElevenLabs voice: {voice_name} ({voice_id})")
+        if preflight.get("model_available") is False:
+            print(f"ElevenLabs preflight warning: model '{model_id}' not returned by /models.")
+        for warning in preflight.get("warnings", []):
+            print("ElevenLabs preflight warning:", warning)
+
+        if dry_run:
+            print("Audio generation skipped: ELEVENLABS_DRY_RUN is enabled.")
+            return ""
 
         out_path = elevenlabs_script_to_mp3(
             script_fa=script_text,
             out_dir="outputs",
             out_mp3_name=f"{country}.mp3",
             voice_id=voice_id,
+            model_id=model_id,
+            max_chars=max_chars,
+            force_chunk=force_chunk,
         )
         return str(out_path)
     except Exception as eleven_exc:
@@ -96,12 +135,37 @@ def _build_audio(country: str, script_fa: str) -> str:
 
 
 def main():
-    if len(sys.argv) < 2:
-        print('Usage: python main.py "CountryName"')
-        return
+    parser = argparse.ArgumentParser(description="Country media pipeline")
+    parser.add_argument("country", help="Country name, e.g. Algeria")
+    parser.add_argument(
+        "--voice-only",
+        action="store_true",
+        help="Generate only ElevenLabs audio from outputs/<Country>_script.txt",
+    )
+    args = parser.parse_args()
 
-    country = sys.argv[1]
+    country = args.country
     print(f"\n=== Generating media package for {country} ===\n")
+
+    if args.voice_only:
+        script_file = f"outputs/{country}_script.txt"
+        script_text = ""
+        if os.path.exists(script_file):
+            with open(script_file, "r", encoding="utf-8") as f:
+                script_text = f.read().strip()
+        if not script_text:
+            print(f"Voice-only mode failed: script file missing or empty at {script_file}")
+            return
+
+        print("Generating audio in voice-only mode...")
+        audio_path = _build_audio(
+            country,
+            script_text,
+            dry_run=_env_flag("ELEVENLABS_DRY_RUN", default=False),
+        )
+        if audio_path:
+            print("Audio saved at:", audio_path)
+        return
 
     print("Fetching YouTube videos...")
     videos = {
@@ -146,7 +210,11 @@ def main():
         print("Fun fact saved at:", f"outputs/{country}_fun_fact.txt")
 
     print("Generating audio...")
-    audio_path = _build_audio(country, script_text)
+    audio_path = _build_audio(
+        country,
+        script_text,
+        dry_run=_env_flag("ELEVENLABS_DRY_RUN", default=False),
+    )
     if audio_path:
         print("Audio saved at:", audio_path)
 
