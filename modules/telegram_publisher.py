@@ -100,6 +100,7 @@ def send_audio(audio_path: str, caption: str, title: str | None = None) -> bool:
     return True
 
 
+
 def publish_photo_then_links(image_path: str, caption: str, links_text: str) -> bool:
     if not send_photo(image_path, caption):
         return False

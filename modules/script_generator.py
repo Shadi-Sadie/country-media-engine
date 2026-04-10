@@ -38,12 +38,12 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 class PipelineOptions:
     model_extract: str = "gpt-4o-mini"
     model_generate: str = "gpt-4o"
-    model_fun_fact: str = "gpt-4o"
+    model_fun_fact: str = "gpt-5.4"
     model_verify: str = "gpt-4o-mini"
 
     temperature_extract: float = 0.0
     temperature_generate: float = 0.6
-    temperature_fun_fact: float = 0.55
+    temperature_fun_fact: float = 0.7
     temperature_verify: float = 0.0
 
     total_words_min: int = 900
@@ -80,6 +80,56 @@ def _parse_fun_facts(raw: str) -> List[str]:
         if normalized:
             facts.append(normalized)
     return facts
+
+
+def _extract_fun_fact_lines(raw: str) -> List[str]:
+    lines = [ln.strip() for ln in (raw or "").splitlines() if ln.strip()]
+    if not lines:
+        return []
+
+    meta_patterns = (
+        "در اینجا",
+        "حتماً",
+        "اگر بخواهی",
+        "می‌توانم",
+        "میتونم",
+        "نسخه",
+        "فهرست",
+    )
+
+    parsed: List[tuple[str, bool]] = []
+    for ln in lines:
+        t = re.sub(r"^[▪•\-\*\s]+", "", ln).strip()
+        if not t:
+            continue
+        if any(p in t for p in meta_patterns):
+            continue
+
+        was_numbered = bool(re.match(r"^[0-9۰-۹]+[\)\.\-:\s]+", t))
+        t = re.sub(r"^[0-9۰-۹]+[\)\.\-:\s]+", "", t).strip()
+        if len(t) < 20:
+            continue
+        parsed.append((t, was_numbered))
+
+    if not parsed:
+        return []
+
+    detailed_non_numbered = [
+        t for t, was_numbered in parsed if (not was_numbered and len(t) >= 45)
+    ]
+    selected = detailed_non_numbered if len(detailed_non_numbered) >= 3 else [t for t, _ in parsed]
+
+    deduped: List[str] = []
+    seen: set[str] = set()
+    for item in selected:
+        key = re.sub(r"\s+", " ", item).strip()
+        if key in seen:
+            continue
+        seen.add(key)
+        normalized = _normalize_fun_fact_line(item)
+        if normalized:
+            deduped.append(normalized)
+    return deduped
 
 
 def call_openai(model, messages, temperature, max_tokens, opt: PipelineOptions):
@@ -246,9 +296,11 @@ def generate_fun_facts(country: str, opt: PipelineOptions) -> List[str]:
 Tell me several interesting fun facts about {country} in Persian.
 
 Rules:
-- Give multiple facts (at least 3).
-- Each fact should be on a new line.
+- Give multiple facts (prefer 5).
+- Use natural, fluent Persian like a native writer.
 - Avoid generic statements.
+- Output only fact lines.
+- Do NOT add intro or outro text.
 - Use this exact format for each line:
   ▪️ <b>عنوان کوتاه</b>: توضیح
 """
@@ -261,7 +313,7 @@ Rules:
         opt=opt
     )
 
-    facts = _parse_fun_facts(raw)
+    facts = _extract_fun_fact_lines(raw)
     if not facts:
         # Fallback if model ignores format completely.
         facts = [f.strip() for f in (raw or "").split("\n") if f.strip()]

@@ -174,7 +174,7 @@ def _send_fun_facts_combined(fun_facts: list[str], country: str = "") -> bool:
     return send_message(payload)
 
 
-def _publish_from_outputs(country: str) -> bool:
+def _publish_from_outputs(country: str, skip_audio: bool = False) -> bool:
     out_dir = Path("outputs")
     caption_path = out_dir / f"{country}_telegram.txt"
     links_path = out_dir / f"{country}_links.txt"
@@ -218,7 +218,9 @@ def _publish_from_outputs(country: str) -> bool:
             ok_fun = _send_fun_facts_combined(facts, country=country)
             print("Fun facts sent successfully." if ok_fun else "Fun facts sending failed.")
 
-    if publish_ok and audio_path.exists() and audio_path.stat().st_size > 0:
+    if skip_audio:
+        print("Audio publishing skipped: --no-audio is enabled.")
+    elif publish_ok and audio_path.exists() and audio_path.stat().st_size > 0:
         print("Publishing audio from outputs...")
         hashtags_inline = f"#week02 #{country} #{country[0].upper()}" if country else "#week02"
         hashtags_inline = f"{hashtags_inline} @countries_AtoZ".strip()
@@ -241,6 +243,11 @@ def main():
         "--publish-only",
         action="store_true",
         help="Publish only from existing outputs files (no generation).",
+    )
+    parser.add_argument(
+        "--no-audio",
+        action="store_true",
+        help="Skip ElevenLabs audio generation and audio publishing.",
     )
     args = parser.parse_args()
 
@@ -272,7 +279,7 @@ def main():
         return
 
     if args.publish_only:
-        _publish_from_outputs(country)
+        _publish_from_outputs(country, skip_audio=args.no_audio)
         return
 
     print("Fetching YouTube videos...")
@@ -317,14 +324,18 @@ def main():
             f.write("\n\n".join(fun_facts))
         print("Fun fact saved at:", f"outputs/{country}_fun_fact.txt")
 
-    print("Generating audio...")
-    audio_path = _build_audio(
-        country,
-        script_text,
-        dry_run=_env_flag("ELEVENLABS_DRY_RUN", default=False),
-    )
-    if audio_path:
-        print("Audio saved at:", audio_path)
+    audio_path = ""
+    if args.no_audio:
+        print("Audio generation skipped: --no-audio is enabled.")
+    else:
+        print("Generating audio...")
+        audio_path = _build_audio(
+            country,
+            script_text,
+            dry_run=_env_flag("ELEVENLABS_DRY_RUN", default=False),
+        )
+        if audio_path:
+            print("Audio saved at:", audio_path)
 
     print("Fetching Wikimedia image...")
     image_path = search_country_image(country)
@@ -348,7 +359,9 @@ def main():
         if len(fun_facts) < 5:
             print(f"Warning: only {len(fun_facts)} fun facts were available.")
 
-    if publish_ok and audio_path:
+    if args.no_audio:
+        print("Audio publishing skipped: --no-audio is enabled.")
+    elif publish_ok and audio_path:
         print("Publishing audio message...")
         country_fa = metadata.get("name_fa", country)
         audio_caption = generate_audio_caption(country, country_fa, hashtags_inline)
