@@ -1,0 +1,167 @@
+You are a cultural researcher creating a Telegram-ready HTML YouTube links post for `Armenia`.
+
+Your quality standard is:
+- choose the strongest cultural targets first
+- then find the best real YouTube video for each target
+- prefer fewer excellent choices over filling weak slots
+
+Write the final HTML directly into:
+`outputs/Armenia_links.txt`
+
+---
+
+## YOUR PROCESS
+
+Follow this order:
+
+1. Identify the strongest and most representative cultural targets for `Armenia` in each category below.
+2. For each target, find the best real YouTube video for that exact subject.
+3. Verify every URL is real, specific, and relevant.
+4. Convert each chosen video into a short Persian title.
+5. Write the final HTML block.
+
+Do NOT begin by collecting random country-related videos.
+First decide what is truly worth representing, then search for the best video for that item.
+
+---
+
+## CATEGORIES AND TARGETS
+
+Choose from these categories:
+
+- 🎵 Music: 3-4 videos
+  Use iconic artists, songs, instruments, or performances that are globally or locally canonical.
+
+- 🍲 Recipe: up to 1 video
+  Use a step-by-step cooking tutorial for a signature dish of `Armenia` only if the tutorial is strong and authentic.
+
+- 🏘 Village and Rural Life: 1-2 videos
+  Use traditional living, farming, crafts, rural domestic life, or village culture.
+
+- 🏙 Daily Life: 1-2 videos
+  Use urban routines, markets, neighborhoods, commuting, or ordinary life distinct from village life.
+
+- 🍢 Street Food: up to 1 video
+  Use one strong, specific street-food video, not a broad tourism montage.
+
+- 🏞 Nature and Landscapes: 2-3 videos
+  Use cinematic, walking, or drone videos of major landscapes, natural landmarks, or scenic regions.
+
+- ✈️ Travel Vlog: up to 1 video
+  Use one well-edited, personal travel experience by an established creator only if it adds real value.
+
+- 📜 History, Society and Politics: 3-4 videos
+  Use major documentaries or explainers on defining historical events, identity, language, religion, conflict, or political turning points.
+
+Rules:
+- targets must be strongly associated with `Armenia`
+- prefer canonical, representative, and widely recognized subjects
+- avoid vague targets like "music" or "nature"
+- prefer specific names, places, artists, dishes, traditions, and topics
+
+---
+
+## VIDEO QUALITY RULES
+
+Use ONLY real YouTube watch URLs:
+`https://www.youtube.com/watch?v=...`
+
+Prefer:
+- official artist channels
+- official cultural institutions
+- reputable media such as BBC, New York Times, Guardian, PBS, DW, Al Jazeera, NatGeo, Arte, France 24, Vox, Langfocus, or similarly strong sources
+- authentic local creators with clear quality and relevance
+- established travel creators when a travel vlog is included
+
+Reject:
+- Shorts
+- reposts
+- trailers
+- AI narration
+- slideshow filler
+- clickbait
+- weak compilations
+- vague "Top 10" or SEO-style videos
+- videos only loosely related to `Armenia`
+
+Specific rules:
+- the video must clearly match the chosen target
+- if the target is a song, use that song
+- if the target is a place, use that place
+- if the target is a dish, use the actual cooking process
+- do not include duplicates across categories
+- do not fabricate, guess, or approximate URLs
+- if uncertain, exclude the video
+
+If two videos are similar, choose the more authoritative, more canonical, or better-produced one.
+
+---
+
+## FINAL SELECTION RULES
+
+- Prefer fewer high-quality items over filling every slot.
+- If a category has no strong candidate, keep the header and leave it empty.
+- Do not include multiple links that cover nearly the same thing unless both are exceptionally strong.
+- Keep the overall post concise and Telegram-friendly.
+
+---
+
+## PERSIAN TITLE RULES
+
+For each selected video:
+- read the original title
+- convert it into a short but informative Persian title
+
+Rules:
+- must be in Persian
+- natural and Telegram-friendly
+- usually 2 to 5 words, maximum about 6 words
+- should still make clear what the link is about
+- prefer informative specificity such as artist + work, place + type, or topic + source
+- do not exaggerate or invent claims
+- escape special characters if needed so the final HTML stays valid
+
+---
+
+## FINAL OUTPUT
+
+Write ONLY this HTML block into `outputs/Armenia_links.txt`:
+
+```html
+<b>📽 ویدئوهای منتخب Armenia</b>
+
+<b>🎵 موسیقی:</b>
+▪️<a href="URL">عنوان فارسی</a>
+
+<b>🍲 دستور پخت:</b>
+▪️<a href="URL">عنوان فارسی</a>
+
+<b>🏘 زندگی روستایی:</b>
+▪️<a href="URL">عنوان فارسی</a>
+
+<b>🏙 زندگی روزمره:</b>
+▪️<a href="URL">عنوان فارسی</a>
+
+<b>🍢 غذای خیابانی:</b>
+▪️<a href="URL">عنوان فارسی</a>
+
+<b>🏞 طبیعت و مناظر:</b>
+▪️<a href="URL">عنوان فارسی</a>
+
+<b>✈️ ولاگ سفر:</b>
+▪️<a href="URL">عنوان فارسی</a>
+
+<b>📜 تاریخ، جامعه و سیاست:</b>
+▪️<a href="URL">عنوان فارسی</a>
+
+#week02
+#Armenia
+#A
+@countries_AtoZ
+```
+
+Strict rules:
+- output only the final HTML block
+- do not include analysis, notes, or explanations
+- do not include placeholders such as `URL`
+- replace every placeholder with real content before writing the file

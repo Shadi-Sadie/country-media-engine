@@ -1,0 +1,13 @@
+Based only on the file Armenia_wiki.txt in the outputs folder, find five interesting facts about Armenia.
+
+- Write them in Farsi.
+- Output only fact lines.
+- Do NOT add intro or outro text.
+- Use this exact format for each line: ▪️ <b>عنوان کوتاه</b>: توضیح
+- Each fact must be easy to illustrate with a matching image later.
+- Prefer visually searchable facts about specific places, monuments, archaeological finds, artworks, objects, landscapes, religious sites, historic figures, or other concrete subjects.
+- Avoid facts that are mostly abstract, statistical, legal, or political if they do not point to a clear imageable subject.
+- The short title will be used later to find a matching picture automatically, so make it concrete, specific, and searchable.
+- The full output will be used as a Telegram media caption, so keep the entire file within Telegram's 1024-character caption limit.
+- Keep each fact concise and caption-friendly.
+- Save them as Armenia_fun_fact.txt in the outputs folder.

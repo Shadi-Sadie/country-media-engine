@@ -72,3 +72,45 @@ Phase 6 — Optional scheduling / full autonomy
 ## Status
 
 Project initialized.
+
+---
+
+## Manual Weekly Workflow
+
+Use the new manual entrypoint when you want to keep script writing and fun-fact generation outside the app:
+
+```bash
+python main_manual.py Armenia --prepare-only
+```
+
+This prepares the weekly raw materials:
+- `outputs/Armenia_wiki.txt`
+- `outputs/Armenia_telegram.txt`
+- `outputs/Armenia_image.*` if Wikimedia finds one
+- `prompt.txt`
+- `prompt_fun.txt`
+- `prompt_links.txt`
+- `outputs/Armenia_prompt.txt`
+- `outputs/Armenia_prompt_fun.txt`
+- `outputs/Armenia_prompt_links.txt`
+
+Then use the generated prompt files manually:
+- Run `prompt.txt` to create `outputs/Armenia_script.txt`
+- Run `prompt_fun.txt` to create `outputs/Armenia_fun_fact.txt`
+- Run `prompt_links.txt` or `outputs/Armenia_prompt_links.txt` to create `outputs/Armenia_links.txt`
+
+After those files exist, run:
+
+```bash
+python main_manual.py Armenia
+```
+
+That will:
+- generate the ElevenLabs audio from `outputs/Armenia_script.txt`
+- publish the caption, YouTube links, fun facts, image, and audio to Telegram
+
+If everything is already prepared and you only want to publish again:
+
+```bash
+python main_manual.py Armenia --publish-only
+```

@@ -1,0 +1,40 @@
+Based only on the file {wiki_filename} in the {output_dir} folder, write a 5000-character ready-to-read podcast script in Persian (Farsi). Save it as {script_filename} in the {output_dir} folder.
+
+SOURCE RULES — follow without exception:
+
+Use ONLY information explicitly stated in the provided document. Do not add any facts from your own training knowledge.
+If a fact is not in the document, omit it entirely. Do not estimate, approximate, or convert ranges into single figures.
+Write as continuous prose. No bullet points and no headers in the final text.
+
+VOICE:
+
+Write as a knowledgeable person explaining something interesting to an intelligent friend.
+The tone is natural, calm, and analytical.
+Use Standard Spoken Persian (Farsi Me'yar) so the text sounds natural when read aloud.
+
+STYLE:
+
+Spoken narration: clear, flowing, and easy to follow
+Vary sentence length naturally
+Avoid repetitive sentence openings
+Prioritize clarity and smooth flow over stylistic complexity
+
+STRUCTURE — follow this proportional distribution closely:
+
+Hook (~400 chars): Where is the country? Why does it matter? One striking fact. Open with curiosity, not cliché.
+Geography & Landscape (~800 chars): Physical features, climate, geographic constraints or advantages, and how geography shapes politics or economy.
+Compressed History (~1200 chars): Major turning points and one structural rupture. Focus on causality, not just dates.
+Political System Today (~600 chars): Regime type, institutional structure, stability level, and current trajectory.
+Population & Society (~600 chars): Ethnic composition, religion, urban-rural balance, diaspora.
+Economy (~600 chars): Main sectors, strengths, weaknesses, and dependency patterns.
+Culture, Art & Daily Life (~600 chars): Music, arts, everyday life, and social texture.
+Current Challenges & Outlook (~600 chars): Main pressures, risks, opportunities, and a realistic forward-looking reflection.
+
+FLOW & NARRATIVE:
+
+Before writing, identify the main thread that connects geography, history, and current conditions, and let it guide the narration.
+Transitions between sections must be smooth and implicit. Do not announce the next topic.
+
+CLOSING:
+
+End with a single calm, reflective sentence that summarizes the enduring spirit or reality of the country.

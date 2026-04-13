@@ -18,19 +18,16 @@ def format_video_list(videos):
 
 def generate_caption(country: str, metadata: dict, hashtags: str) -> str:
     # Keep this SHORT (caption-safe)
-   lines = [
-    f"<b>{metadata.get('name_fa', country)} {metadata.get('flag', '')}</b>".strip(),
-    f"🏙 <b>پایتخت:</b> {metadata.get('capital', 'نامشخص')}",
-    f"📏 <b>مساحت:</b> {metadata.get('area', 'نامشخص')}",
-    f"📍 <b>موقعیت:</b> {metadata.get('location', 'نامشخص')}",
-    f"🤝 <b>همسایگان:</b> {metadata.get('neighbors', 'نامشخص')}",
-    f"👥 <b>جمعیت:</b> {metadata.get('population', 'نامشخص')}",
-    f"🗣 <b>زبان رسمی:</b> {metadata.get('languages', 'نامشخص')}",
-    "",
-    hashtags.strip() if hashtags else ""
-
+    lines = [
+        f"<b>{metadata.get('name_fa', country)} {metadata.get('flag', '')}</b>".strip(),
+        f"🏙 <b>پایتخت:</b> {metadata.get('capital', 'نامشخص')}",
+        f"📏 <b>مساحت:</b> {metadata.get('area', 'نامشخص')}",
+        f"📍 <b>موقعیت:</b> {metadata.get('location', 'نامشخص')}",
+        f"🤝 <b>همسایگان:</b> {metadata.get('neighbors', 'نامشخص')}",
+        f"👥 <b>جمعیت:</b> {metadata.get('population', 'نامشخص')}",
+        f"🗣 <b>زبان رسمی:</b> {metadata.get('languages', 'نامشخص')}",
     ]
-   return "\n".join(lines).strip()
+    return "\n".join(lines).strip()
 
 
 def _short_fa_label(category: str, idx: int) -> str:
@@ -81,7 +78,7 @@ def generate_links_post(country: str, videos_by_cat: dict, hashtags: str) -> str
 
 
 def generate_audio_caption(country_en: str, country_fa: str, hashtags: str) -> str:
-    intro = f"مرور صوتی ویکی‌پدیا {country_fa or country_en}؛ تهیه شده با هوش مصنوعی."
+    intro = f"مرور صوتی ویکی‌پدیا {country_fa or country_en}؛ تهیه شده با هوش مصنوعی"
     tags = (hashtags or "").strip()
     if tags:
         return f"{intro}\n{tags}"

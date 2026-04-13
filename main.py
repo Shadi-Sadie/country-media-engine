@@ -231,9 +231,73 @@ def _publish_from_outputs(country: str, skip_audio: bool = False) -> bool:
     return publish_ok
 
 
+def _preview_links(country: str) -> None:
+    """Fetch YouTube videos, print a human-readable quality preview, and save
+    the links file — without publishing anything to Telegram."""
+    print(f"\n=== Links preview for {country} ===\n")
+
+    videos = {
+        "music":   search_youtube_category(country, "music",   max_per_category=3),
+        "life":    search_youtube_category(country, "life",    max_per_category=4),
+        "nature":  search_youtube_category(country, "nature",  max_per_category=2),
+        "history": search_youtube_category(country, "history", max_per_category=3),
+    }
+
+    for cat, items in videos.items():
+        for v in items:
+            v["fa_label"] = short_fa_title(cat, v.get("title", ""), v.get("channel", ""))
+
+    category_headers = {
+        "music":   "🎵 Music",
+        "life":    "🍲 Life & Food",
+        "nature":  "🏞 Nature & Landscapes",
+        "history": "📜 History, Society & Politics",
+    }
+
+    total = 0
+    for cat, items in videos.items():
+        print(f"  {category_headers[cat]}  ({len(items)} videos)")
+        if not items:
+            print("    — no results found")
+        for v in items:
+            views = f"{v['view_count']:,}"
+            mins  = v.get("duration_minutes", 0)
+            dur   = f"{int(mins)}m"
+            label = v.get("fa_label", "")
+            print(f"    [{views:>12} views | {dur:>4}]  {label}")
+            print(f"      title  : {v['title']}")
+            print(f"      channel: {v['channel']}")
+            print(f"      url    : {v['url']}")
+        total += len(items)
+        print()
+
+    print(f"  Total links: {total}")
+    print()
+
+    tags = ["#week02", f"#{country}"]
+    if country and country[0].isalpha():
+        tags.append(f"#{country[0].upper()}")
+    tags.append("@countries_AtoZ")
+    hashtags_lines = "\n".join(tags)
+
+    links_text = generate_links_post(country, videos, hashtags_lines)
+    os.makedirs("outputs", exist_ok=True)
+    out_path = f"outputs/{country}_links.txt"
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(links_text)
+    print(f"  Links saved → {out_path}")
+    print("\n--- Telegram HTML preview ---\n")
+    print(links_text)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Country media pipeline")
     parser.add_argument("country", help="Country name, e.g. Algeria")
+    parser.add_argument(
+        "--links-only",
+        action="store_true",
+        help="Fetch and preview YouTube links only — no publishing, no audio, no script.",
+    )
     parser.add_argument(
         "--voice-only",
         action="store_true",
@@ -253,6 +317,10 @@ def main():
 
     country = args.country
     print(f"\n=== Generating media package for {country} ===\n")
+
+    if args.links_only:
+        _preview_links(country)
+        return
 
     if args.voice_only and args.publish_only:
         print("Choose only one mode: --voice-only or --publish-only")
@@ -284,10 +352,10 @@ def main():
 
     print("Fetching YouTube videos...")
     videos = {
-        "music": search_youtube_category(country, "music"),
-        "life": search_youtube_category(country, "life"),
-        "nature": search_youtube_category(country, "nature"),
-        "history": search_youtube_category(country, "history"),
+        "music":   search_youtube_category(country, "music",   max_per_category=3),
+        "life":    search_youtube_category(country, "life",    max_per_category=4),
+        "nature":  search_youtube_category(country, "nature",  max_per_category=2),
+        "history": search_youtube_category(country, "history", max_per_category=3),
     }
 
     for cat, items in videos.items():

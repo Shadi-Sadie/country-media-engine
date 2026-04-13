@@ -1,0 +1,12 @@
+ find five interesting facts about {country}.
+
+- Write them in Farsi.
+- Output only fact lines.
+- Do NOT add intro or outro text.
+- Avoid facts that are mostly abstract, statistical, legal, or political if they do not point to a clear imageable subject.
+- Use this exact format for each line: ▪️ <b>عنوان کوتاه</b>: توضیح
+- find a picutre related to each fun fact.
+- The full output will be used as a Telegram media caption, so keep the entire file within Telegram's 1024-character caption limit.
+- Keep each fact concise and caption-friendly.
+- Save the fun fact a as {fun_fact_filename} in the {output_dir} folder.
+- Save the pictures as {fun_fact_filename}_[fact].jpg in the outputs folder.

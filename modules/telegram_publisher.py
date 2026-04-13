@@ -3,6 +3,7 @@
 import os
 import requests
 from dotenv import load_dotenv
+from modules.telegram_post_generator_manual import telegram_caption_length
 
 
 def _get_telegram_config():
@@ -36,7 +37,15 @@ def send_photo(image_path: str, caption: str) -> bool:
             timeout=30,
         )
     if r.status_code != 200:
-        print("Telegram sendPhoto error:", r.text)
+        err = r.json() if r.headers.get("content-type", "").startswith("application/json") else r.text
+        description = err.get("description", r.text) if isinstance(err, dict) else err
+        if "caption is too long" in str(description).lower():
+            print(
+                "Telegram sendPhoto error: caption is too long "
+                f"({telegram_caption_length(caption)} chars after entity parsing, limit is 1024)."
+            )
+        else:
+            print("Telegram sendPhoto error:", description)
         return False
     return True
 
