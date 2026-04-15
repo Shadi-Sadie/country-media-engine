@@ -1,5 +1,8 @@
 import html
+import os
 import re
+
+from modules.un_schedule import format_week_tag, resolve_un_schedule
 
 
 TELEGRAM_CAPTION_LIMIT = 1024
@@ -11,9 +14,25 @@ def _hashtag_token(text: str) -> str:
     return cleaned or "Country"
 
 
-def build_hashtags(country: str) -> dict[str, str]:
+def build_hashtags(country: str, week_number: int | None = None) -> dict[str, str]:
+    if week_number is None:
+        env_week = os.getenv("WEEK_NUMBER", "").strip()
+        if env_week:
+            try:
+                week_number = int(env_week)
+            except ValueError:
+                week_number = None
+
+    if week_number is None:
+        try:
+            entry = resolve_un_schedule(country=country)
+            country = entry.country_name
+            week_number = entry.week_number
+        except ValueError:
+            week_number = 2
+
     country_tag = _hashtag_token(country)
-    tags = ["#week02", f"#{country_tag}"]
+    tags = [format_week_tag(week_number), f"#{country_tag}"]
     if country and country[0].isalpha():
         tags.append(f"#{country[0].upper()}")
     tags.append("@countries_AtoZ")

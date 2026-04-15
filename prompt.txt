@@ -1,4 +1,4 @@
-Based only on the file Armenia_wiki.txt in the outputs folder, write a 5000-character ready-to-read podcast script in Persian (Farsi). Save it as Armenia_script.txt in the outputs folder.
+Based only on the file Australia_wiki.txt in the outputs folder, write a 5000-character ready-to-read podcast script in Persian (Farsi). Save it as Australia_script.txt in the outputs folder.
 
 SOURCE RULES — follow without exception:
 

@@ -12,6 +12,7 @@ from modules.telegram_post_generator_manual import (
     is_caption_within_limit,
 )
 from modules.telegram_publisher_manual import publish_package
+from modules.un_schedule import resolve_un_schedule
 from modules.wiki_fetcher import fetch_wikipedia_full_text
 from modules.wikimedia_fetcher import search_country_image, search_fun_fact_image
 
@@ -188,7 +189,7 @@ def _build_audio(country: str, script_text: str, dry_run: bool = False) -> str:
         return ""
 
 
-def _prepare_country_package(country: str) -> dict[str, str]:
+def _prepare_country_package(country: str, week_number: int) -> dict[str, str]:
     paths = _country_paths(country)
     paths["out_dir"].mkdir(parents=True, exist_ok=True)
 
@@ -198,13 +199,17 @@ def _prepare_country_package(country: str) -> dict[str, str]:
     print("Wikipedia text saved at:", paths["wiki"])
 
     print("Rendering country prompts...")
-    prompt_paths = prepare_country_prompts(country, output_dir=str(paths["out_dir"]))
+    prompt_paths = prepare_country_prompts(
+        country,
+        output_dir=str(paths["out_dir"]),
+        week_number=week_number,
+    )
     for _, prompt_path in prompt_paths.items():
         print("Prompt ready at:", prompt_path)
 
     print("Fetching metadata...")
     metadata = fetch_country_metadata(country)
-    hashtags = build_hashtags(country)
+    hashtags = build_hashtags(country, week_number=week_number)
 
     caption_text = generate_caption(country, metadata, hashtags["lines"])
     _write_text(paths["caption"], caption_text)
@@ -225,7 +230,7 @@ def _prepare_country_package(country: str) -> dict[str, str]:
     }
 
 
-def _publish_from_outputs(country: str, skip_audio: bool = False) -> bool:
+def _publish_from_outputs(country: str, week_number: int, skip_audio: bool = False) -> bool:
     paths = _country_paths(country)
     caption_text = _read_text(paths["caption"])
     links_text = _read_text(paths["links"])
@@ -241,7 +246,7 @@ def _publish_from_outputs(country: str, skip_audio: bool = False) -> bool:
     fun_fact_images = _ensure_fun_fact_images(country, fun_facts, paths["out_dir"])
     image_path = _find_image_path(country, paths["out_dir"])
     audio_path = str(paths["audio"]) if paths["audio"].exists() and not skip_audio else ""
-    hashtags = build_hashtags(country)
+    hashtags = build_hashtags(country, week_number=week_number)
     audio_caption = generate_audio_caption(country, country, hashtags["inline"]) if audio_path else ""
 
     if not image_path:
@@ -280,7 +285,12 @@ def _publish_from_outputs(country: str, skip_audio: bool = False) -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Manual country media pipeline")
-    parser.add_argument("country", help="Country name, e.g. Armenia")
+    parser.add_argument("country", nargs="?", help="Country name, e.g. Armenia")
+    parser.add_argument(
+        "--week-number",
+        type=int,
+        help="UN list position/week number, e.g. 8 resolves to Armenia in the current cached list.",
+    )
     parser.add_argument(
         "--prepare-only",
         action="store_true",
@@ -301,15 +311,24 @@ def main() -> None:
     if args.prepare_only and args.publish_only:
         raise SystemExit("Choose only one mode: --prepare-only or --publish-only")
 
-    country = args.country
-    print(f"\n=== Manual media pipeline for {country} ===\n")
+    try:
+        schedule = resolve_un_schedule(country=args.country, week_number=args.week_number)
+    except ValueError as exc:
+        raise SystemExit(str(exc))
+
+    country = schedule.country_name
+    week_number = schedule.week_number
+    print(
+        f"\n=== Manual media pipeline for {country} "
+        f"(week {week_number:02d}, UN official: {schedule.official_name}) ===\n"
+    )
 
     if args.publish_only:
-        publish_ok = _publish_from_outputs(country, skip_audio=args.no_audio)
+        publish_ok = _publish_from_outputs(country, week_number=week_number, skip_audio=args.no_audio)
         print("Published successfully." if publish_ok else "Publishing failed.")
         return
 
-    prepared = _prepare_country_package(country)
+    prepared = _prepare_country_package(country, week_number=week_number)
     if args.prepare_only:
         print("Preparation complete. Create the script, fun facts, and links from the rendered prompts, then rerun.")
         return

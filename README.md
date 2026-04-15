@@ -83,6 +83,12 @@ Use the new manual entrypoint when you want to keep script writing and fun-fact 
 python main_manual.py Armenia --prepare-only
 ```
 
+or let the app resolve the country from the UN alphabetical list and the week number:
+
+```bash
+python main_manual.py --week-number 8 --prepare-only
+```
+
 This prepares the weekly raw materials:
 - `outputs/Armenia_wiki.txt`
 - `outputs/Armenia_telegram.txt`
@@ -90,19 +96,27 @@ This prepares the weekly raw materials:
 - `prompt.txt`
 - `prompt_fun.txt`
 - `prompt_links.txt`
+- `prompt_links_format.txt` (legacy alias)
 - `outputs/Armenia_prompt.txt`
 - `outputs/Armenia_prompt_fun.txt`
 - `outputs/Armenia_prompt_links.txt`
+- `outputs/Armenia_prompt_links_format.txt` (legacy alias)
 
 Then use the generated prompt files manually:
 - Run `prompt.txt` to create `outputs/Armenia_script.txt`
 - Run `prompt_fun.txt` to create `outputs/Armenia_fun_fact.txt`
-- Run `prompt_links.txt` or `outputs/Armenia_prompt_links.txt` to create `outputs/Armenia_links.txt`
+- Run `prompt_links.txt`, `prompt_links_format.txt`, `outputs/Armenia_prompt_links.txt`, or `outputs/Armenia_prompt_links_format.txt` to create `outputs/Armenia_links.txt`
 
 After those files exist, run:
 
 ```bash
 python main_manual.py Armenia
+```
+
+or:
+
+```bash
+python main_manual.py --week-number 8
 ```
 
 That will:

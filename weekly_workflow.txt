@@ -1,0 +1,69 @@
+COUNTRY MEDIA ENGINE WEEKLY WORKFLOW
+
+Use this file as instructions for Codex, or use the helper script below for a stricter workflow:
+
+- python scripts/manual_workflow.py --country Armenia prepare
+- python scripts/manual_workflow.py --country Armenia prompts
+- python scripts/manual_workflow.py --country Armenia status
+- python scripts/manual_workflow.py --country Armenia publish
+
+- python scripts/manual_workflow.py --week-number 8 prepare
+- python scripts/manual_workflow.py --week-number 8 prompts
+- python scripts/manual_workflow.py --week-number 8 status
+- python scripts/manual_workflow.py --week-number 8 publish
+
+Example prompts to Codex:
+- Read weekly_workflow.txt and execute it for Armenia
+- Read weekly_workflow.txt and execute it for week 8
+
+
+COUNTRY-BASED WORKFLOW
+
+If the requested country is <Country>, do these steps in order:
+
+1. Run:
+python main_manual.py <Country> --prepare-only
+
+2. Read and execute:
+outputs/<Country>_prompt.txt
+
+3. Read and execute:
+outputs/<Country>_prompt_fun.txt
+
+4. Read and execute:
+outputs/<Country>_prompt_links_format.txt
+
+5. Run:
+python main_manual.py <Country> --publish-only
+
+
+WEEK-BASED WORKFLOW
+
+If the requested week number is <WeekNumber>, do these steps in order:
+
+1. Run:
+python main_manual.py --week-number <WeekNumber> --prepare-only
+
+2. Determine the resolved country from the generated output filenames or the command output.
+
+3. Read and execute:
+outputs/<ResolvedCountry>_prompt.txt
+
+4. Read and execute:
+outputs/<ResolvedCountry>_prompt_fun.txt
+
+5. Read and execute:
+outputs/<ResolvedCountry>_prompt_links_format.txt
+
+6. Run:
+python main_manual.py --week-number <WeekNumber> --publish-only
+
+
+IMPORTANT RULES
+
+- Execute the steps in order.
+- Do not skip a step unless a required output already exists and is valid.
+- If the links prompt exists as outputs/<Country>_prompt_links.txt but not outputs/<Country>_prompt_links_format.txt, use whichever exists.
+- If network access approval is required, request it.
+- If publishing fails because of a Telegram file-size or caption-limit issue, fix the issue and retry.
+- When using the week-based workflow, the hashtags must follow the resolved UN-list week and country automatically.

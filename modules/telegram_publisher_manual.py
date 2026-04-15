@@ -3,6 +3,7 @@ import json
 
 import requests
 from dotenv import load_dotenv
+from modules.telegram_media import cleanup_prepared_telegram_media, prepare_telegram_photo
 from modules.telegram_post_generator_manual import is_caption_within_limit, telegram_caption_length
 
 
@@ -45,17 +46,21 @@ def send_photo(image_path: str, caption: str) -> bool:
     if not base_url:
         return False
 
-    with open(image_path, "rb") as photo:
-        response = requests.post(
-            f"{base_url}/sendPhoto",
-            data={
-                "chat_id": chat_id,
-                "caption": RTL + caption,
-                "parse_mode": "HTML",
-            },
-            files={"photo": photo},
-            timeout=30,
-        )
+    prepared_path, temp_dir = prepare_telegram_photo(image_path)
+    try:
+        with open(prepared_path, "rb") as photo:
+            response = requests.post(
+                f"{base_url}/sendPhoto",
+                data={
+                    "chat_id": chat_id,
+                    "caption": RTL + caption,
+                    "parse_mode": "HTML",
+                },
+                files={"photo": photo},
+                timeout=30,
+            )
+    finally:
+        cleanup_prepared_telegram_media([temp_dir])
 
     if response.status_code != 200:
         print("Telegram sendPhoto error:", response.text)
@@ -78,13 +83,16 @@ def send_media_group(image_paths: list[str], caption: str = "") -> bool:
     media = []
     files = {}
     handles = []
+    temp_dirs: list[str | None] = []
 
     try:
         for index, image_path in enumerate(valid_paths[:10]):
             attach_name = f"photo{index}"
-            handle = open(image_path, "rb")
+            prepared_path, temp_dir = prepare_telegram_photo(image_path)
+            temp_dirs.append(temp_dir)
+            handle = open(prepared_path, "rb")
             handles.append(handle)
-            files[attach_name] = (os.path.basename(image_path), handle)
+            files[attach_name] = (os.path.basename(prepared_path), handle)
 
             item = {
                 "type": "photo",
@@ -107,6 +115,7 @@ def send_media_group(image_paths: list[str], caption: str = "") -> bool:
     finally:
         for handle in handles:
             handle.close()
+        cleanup_prepared_telegram_media(temp_dirs)
 
     if response.status_code != 200:
         print("Telegram sendMediaGroup error:", response.text)

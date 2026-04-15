@@ -3,6 +3,7 @@
 import os
 import requests
 from dotenv import load_dotenv
+from modules.telegram_media import cleanup_prepared_telegram_media, prepare_telegram_photo
 from modules.telegram_post_generator_manual import telegram_caption_length
 
 
@@ -26,16 +27,20 @@ def send_photo(image_path: str, caption: str) -> bool:
     caption = RTL + caption   #
 
     url = f"{base_url}/sendPhoto"
-    with open(image_path, "rb") as photo:
-        r = requests.post(
-            url,
-            data={"chat_id": chat_id,
-                   "caption": caption,
-                   "parse_mode": "HTML"
-                   },
-            files={"photo": photo},
-            timeout=30,
-        )
+    prepared_path, temp_dir = prepare_telegram_photo(image_path)
+    try:
+        with open(prepared_path, "rb") as photo:
+            r = requests.post(
+                url,
+                data={"chat_id": chat_id,
+                       "caption": caption,
+                       "parse_mode": "HTML"
+                       },
+                files={"photo": photo},
+                timeout=30,
+            )
+    finally:
+        cleanup_prepared_telegram_media([temp_dir])
     if r.status_code != 200:
         err = r.json() if r.headers.get("content-type", "").startswith("application/json") else r.text
         description = err.get("description", r.text) if isinstance(err, dict) else err
