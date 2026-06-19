@@ -96,7 +96,10 @@ def _iso2_to_flag_emoji(iso2: str | None) -> str:
 
 
 def fetch_country_metadata(country: str) -> dict:
-    qid = _get_qid_from_wikipedia(country)
+    try:
+        qid = _get_qid_from_wikipedia(country)
+    except Exception:
+        qid = None
     if not qid:
         return {
             "name_fa": country,
@@ -109,7 +112,19 @@ def fetch_country_metadata(country: str) -> dict:
             "languages": "نامشخص",
         }
 
-    ent = _fetch_entity(qid)
+    try:
+        ent = _fetch_entity(qid)
+    except Exception:
+        return {
+            "name_fa": country,
+            "flag": "",
+            "capital": "نامشخص",
+            "area": "نامشخص",
+            "location": "نامشخص",
+            "neighbors": "نامشخص",
+            "population": "نامشخص",
+            "languages": "نامشخص",
+        }
 
     # Claims
     capital_ids = _claim_ids(ent, "P36")     # capital

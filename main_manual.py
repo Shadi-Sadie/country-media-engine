@@ -193,10 +193,14 @@ def _prepare_country_package(country: str, week_number: int) -> dict[str, str]:
     paths = _country_paths(country)
     paths["out_dir"].mkdir(parents=True, exist_ok=True)
 
-    print("Fetching Wikipedia text...")
-    wiki_text = fetch_wikipedia_full_text(country)
-    _write_text(paths["wiki"], wiki_text)
-    print("Wikipedia text saved at:", paths["wiki"])
+    if paths["wiki"].exists() and paths["wiki"].stat().st_size > 0:
+        print("Using cached Wikipedia text from:", paths["wiki"])
+        wiki_text = paths["wiki"].read_text(encoding="utf-8")
+    else:
+        print("Fetching Wikipedia text...")
+        wiki_text = fetch_wikipedia_full_text(country)
+        _write_text(paths["wiki"], wiki_text)
+        print("Wikipedia text saved at:", paths["wiki"])
 
     print("Rendering country prompts...")
     prompt_paths = prepare_country_prompts(
