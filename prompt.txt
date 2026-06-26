@@ -1,4 +1,4 @@
-Based only on the file Belarus_wiki.txt in the outputs folder, write a 5000-character ready-to-read podcast script in Persian (Farsi). Save it as Belarus_script.txt in the outputs folder.
+Based only on the file Belgium_wiki.txt in the outputs folder, write a 5000-character ready-to-read podcast script in Persian (Farsi). Save it as Belgium_script.txt in the outputs folder.
 
 SOURCE RULES — follow without exception:
 
