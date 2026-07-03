@@ -1,4 +1,4 @@
-Based only on the file Belgium_wiki.txt in the outputs folder, find five interesting facts about Belgium.
+Based only on the file Belize_wiki.txt in the outputs folder, find five interesting facts about Belize.
 
 - Write them in Farsi.
 - Output only fact lines.
@@ -8,5 +8,5 @@ Based only on the file Belgium_wiki.txt in the outputs folder, find five interes
 - Each fact should point to a concrete, imageable subject so a related picture can be found later.
 - The full output will be used as a Telegram media caption, so keep the entire file within Telegram's 1024-character caption limit.
 - Keep each fact concise and caption-friendly.
-- Save the fun facts as Belgium_fun_fact.txt in the outputs folder.
+- Save the fun facts as Belize_fun_fact.txt in the outputs folder.
 - Do not output image filenames, notes, or explanations.
