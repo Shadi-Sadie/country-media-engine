@@ -1,4 +1,4 @@
-You are a cultural researcher creating a Telegram-ready HTML YouTube links post for `Belize`.
+You are a cultural researcher creating a Telegram-ready HTML YouTube links post for `Benin`.
 
 Your quality standard is:
 - choose the strongest cultural targets first
@@ -6,7 +6,7 @@ Your quality standard is:
 - prefer fewer excellent choices over filling weak slots
 
 Write the final HTML directly into:
-`outputs/Belize_links.txt`
+`outputs/Benin_links.txt`
 
 ---
 
@@ -14,7 +14,7 @@ Write the final HTML directly into:
 
 Follow this order:
 
-1. Identify the strongest and most representative cultural targets for `Belize` in each category below.
+1. Identify the strongest and most representative cultural targets for `Benin` in each category below.
 2. For each target, find the best real YouTube video for that exact subject.
 3. Verify every URL is real, specific, and relevant.
 4. Convert each chosen video into a short Persian title.
@@ -33,7 +33,7 @@ Choose from these categories:
   Use iconic artists, songs, instruments, or performances that are globally or locally canonical.
 
 - 🍲 Recipe: up to 1 video
-  Use a step-by-step cooking tutorial for a signature dish of `Belize` only if the tutorial is strong and authentic.
+  Use a step-by-step cooking tutorial for a signature dish of `Benin` only if the tutorial is strong and authentic.
 
 - 🏘 Village and Rural Life: 1-2 videos
   Use traditional living, farming, crafts, rural domestic life, or village culture.
@@ -54,7 +54,7 @@ Choose from these categories:
   Use major documentaries or explainers on defining historical events, identity, language, religion, conflict, or political turning points.
 
 Rules:
-- targets must be strongly associated with `Belize`
+- targets must be strongly associated with `Benin`
 - prefer canonical, representative, and widely recognized subjects
 - avoid vague targets like "music" or "nature"
 - prefer specific names, places, artists, dishes, traditions, and topics
@@ -82,7 +82,7 @@ Reject:
 - clickbait
 - weak compilations
 - vague "Top 10" or SEO-style videos
-- videos only loosely related to `Belize`
+- videos only loosely related to `Benin`
 
 Specific rules:
 - the video must clearly match the chosen target
@@ -125,10 +125,10 @@ Rules:
 
 ## FINAL OUTPUT
 
-Write ONLY this HTML block into `outputs/Belize_links.txt`:
+Write ONLY this HTML block into `outputs/Benin_links.txt`:
 
 ```html
-<b>📽 ویدئوهای منتخب Belize</b>
+<b>📽 ویدئوهای منتخب Benin</b>
 
 <b>🎵 موسیقی:</b>
 ▪️<a href="URL">عنوان فارسی</a>
@@ -154,8 +154,8 @@ Write ONLY this HTML block into `outputs/Belize_links.txt`:
 <b>📜 تاریخ، جامعه و سیاست:</b>
 ▪️<a href="URL">عنوان فارسی</a>
 
-#week18
-#Belize
+#week19
+#Benin
 #B
 @countries_AtoZ
 ```
